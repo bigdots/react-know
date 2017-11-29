@@ -1,1 +1,1 @@
-## [React Class](./react/ReactClass.md)
+* [React](react/ReactClass.md)
