@@ -28,12 +28,12 @@ Component，createElement... ）注入。
 
 ## Component
 
-详情请参阅[ComponentClass](./Component/ComponentClass.md)
+详情请参阅[React.Children](sections/React.Children.md)
 
 ## createElement: functon
 
-这个方法平常写 react 代码的时候可能不怎么需要用到，但其实它被使用地十分频繁
-。我们用 `JSX` 编写的代码会被转换成用这个方法来实现。
+这个方法平常写 react 代码的时候可能不怎么需要用到，但其实它被使用地十分频繁。我
+们用 `JSX` 编写的代码会被转换成用这个方法来实现。
 
 ```jsx
 // jsx
@@ -89,7 +89,7 @@ function createElement(type, config, children) {
 
         self = config.__self === undefined ? null : config.__self;
         source = config.__source === undefined ? null : config.__source;
-        // Remaining properties are added to a new props object
+        // 将节点的properties重新用一个新的对象（props）接收
         for (propName in config) {
             if (
                 hasOwnProperty.call(config, propName) &&
@@ -100,8 +100,7 @@ function createElement(type, config, children) {
         }
     }
 
-    // Children can be more than one argument, and those are transferred onto
-    // the newly allocated props object.
+    // 分情况取children值，分1个子节点和多个子节点
     var childrenLength = arguments.length - 2;
     if (childrenLength === 1) {
         props.children = children;
@@ -118,7 +117,7 @@ function createElement(type, config, children) {
         props.children = childArray;
     }
 
-    // Resolve default props
+    // 节点默认属性赋值逻辑
     if (type && type.defaultProps) {
         var defaultProps = type.defaultProps;
         for (propName in defaultProps) {
@@ -157,3 +156,27 @@ function createElement(type, config, children) {
     );
 }
 ```
+
+## isValidElement
+
+验证对象是否是一个 React 元素。返回 true 或 false 。
+
+## Children
+
+这个属性提供了处理 this.props.children 的工具。
+
+```js
+Children: {
+    map,
+    forEach,
+    count,
+    toArray,
+    only,
+}
+```
+详情请参阅[React.Children](sections/React.Children.md)
+
+
+## version
+
+当前React的版本号
