@@ -30,6 +30,19 @@ Component，createElement... ）注入。
 
 详情请参阅[React.Children](sections/React.Children.md)
 
+## PureComponent
+
+与 React.Component 几乎完全相同，但 PureComponent 通过prop和state的浅对比来实现 shouldComponentUpate()。
+
+它会忽略整个组件的子级。请确保所有的子级组件也是”Pure”的。
+
+## unstable_AsyncComponent
+实验特性
+```js
+unstable_AsyncComponent:AsyncComponent
+```
+
+
 ## createElement: functon
 
 这个方法平常写 react 代码的时候可能不怎么需要用到，但其实它被使用地十分频繁。我

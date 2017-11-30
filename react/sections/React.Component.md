@@ -1,4 +1,3 @@
-
 # React.Component
 
 <!-- AsyncComponent,PureComponent 暂不讨论后期补加 -->
@@ -26,4 +25,66 @@ Component.prototype.isReactComponent = {};
 Component.prototype.setState = function(partialState, callback) {})
 
 Component.prototype.forceUpdate = function(callback) {}
+```
+
+## props
+
+## setState
+
+## forceUpdate
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# React.PureComponent | React.AsyncComponent
+
+类的声明同Component一致
+
+```js
+function ComponentDummy() {}
+ComponentDummy.prototype = Component.prototype;
+
+```
+
+```js
+var pureComponentPrototype = (PureComponent.prototype = new ComponentDummy());
+pureComponentPrototype.constructor = PureComponent;
+// Avoid an extra prototype jump for these methods.
+Object.assign(pureComponentPrototype, Component.prototype);
+pureComponentPrototype.isPureReactComponent = true;
+
+```
+
+```js
+var asyncComponentPrototype = (AsyncComponent.prototype = new ComponentDummy());
+asyncComponentPrototype.constructor = AsyncComponent;
+// Avoid an extra prototype jump for these methods.
+Object.assign(asyncComponentPrototype, Component.prototype);
+asyncComponentPrototype.unstable_isAsyncReactComponent = true;
+asyncComponentPrototype.render = function() {
+    return this.props.children;
+};
 ```
