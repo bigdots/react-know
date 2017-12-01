@@ -26,27 +26,29 @@ var React = {
 React 类的代码很简单，只是将一些属性（比如：Children ，
 Component，createElement... ）注入。
 
-## Component
+## Component ： Class
 
 详情请参阅[React.Children](sections/React.Children.md)
 
-## PureComponent
+## PureComponent： Class
 
-与 React.Component 几乎完全相同，但 PureComponent 通过prop和state的浅对比来实现 shouldComponentUpate()。
+与 React.Component 几乎完全相同，但 PureComponent 通过 prop 和 state 的浅对比来
+实现 shouldComponentUpate()。
 
-它会忽略整个组件的子级。请确保所有的子级组件也是”Pure”的。
+它会忽略整个组件的子级。请确保所有的子级组件  也是 ”Pure” 的。
 
-## unstable_AsyncComponent
+## unstable_AsyncComponent: Class
+
 实验特性
-```js
-unstable_AsyncComponent:AsyncComponent
-```
 
+```js
+unstable_AsyncComponent: AsyncComponent;
+```
 
 ## createElement: functon
 
 这个方法平常写 react 代码的时候可能不怎么需要用到，但其实它被使用地十分频繁。我
-们用 `JSX` 编写的代码会被转换成用这个方法来实现。
+们用 `JSX` 编写的代码会被转换成用这个方法来实现。这个方法会创建**虚拟 DOM**。
 
 ```jsx
 // jsx
@@ -139,25 +141,7 @@ function createElement(type, config, children) {
             }
         }
     }
-    if (__DEV__) {
-        if (key || ref) {
-            if (
-                typeof props.$$typeof === "undefined" ||
-                props.$$typeof !== REACT_ELEMENT_TYPE
-            ) {
-                var displayName =
-                    typeof type === "function"
-                        ? type.displayName || type.name || "Unknown"
-                        : type;
-                if (key) {
-                    defineKeyPropWarningGetter(props, displayName);
-                }
-                if (ref) {
-                    defineRefPropWarningGetter(props, displayName);
-                }
-            }
-        }
-    }
+
     return ReactElement(
         type,
         key,
@@ -168,6 +152,95 @@ function createElement(type, config, children) {
         props
     );
 }
+```
+
+```js
+/**
+ * 创建react节点的工厂函数. This no longer adheres to
+ * the class pattern, so do not use new to call it. Also, no instanceof check
+ * will work. Instead test $$typeof field against Symbol.for('react.element') to check
+ * if something is a React Element.
+ *
+ * @param {*} type
+ * @param {*} key
+ * @param {string|object} ref
+ * @param {*} self 一个临时解决方案：当调用React.createElement时，this的指向，
+ * 使用箭头函数
+ * A *temporary* helper to detect places where `this` is
+ * different from the `owner` when React.createElement is called, so that we
+ * can warn. We want to get rid of owner and replace string `ref`s with arrow
+ * functions, and as long as `this` and owner are the same, there will be no
+ * change in behavior.
+ * @param {*} source 辅助性说明对象
+ * An annotation object (added by a transpiler or otherwise)
+ * indicating filename, line number, and/or other information.
+ * @param {*} owner
+ * @param {*} props
+ * @internal
+ */
+var ReactElement = function(type, key, ref, self, source, owner, props) {
+    var element = {
+        // This tag allow us to uniquely identify this as a React Element
+        $$typeof: REACT_ELEMENT_TYPE,
+
+        // Built-in properties that belong on the element
+        type: type,
+        key: key,
+        ref: ref,
+        props: props,
+
+        // Record the component responsible for creating this element.
+        _owner: owner
+    };
+
+    if (__DEV__) {
+        // The validation flag is currently mutative. We put it on
+        // an external backing store so that we can freeze the whole object.
+        // This can be replaced with a WeakMap once they are implemented in
+        // commonly used development environments.
+        element._store = {};
+
+        // To make comparing ReactElements easier for testing purposes, we make
+        // the validation flag non-enumerable (where possible, which should
+        // include every environment we run tests in), so the test framework
+        // ignores it.
+        Object.defineProperty(element._store, "validated", {
+            configurable: false,
+            enumerable: false,
+            writable: true,
+            value: false
+        });
+        // self and source are DEV only properties.
+        Object.defineProperty(element, "_self", {
+            configurable: false,
+            enumerable: false,
+            writable: false,
+            value: self
+        });
+        // Two elements created in two different places should be considered
+        // equal for testing purposes and therefore we hide it from enumeration.
+        Object.defineProperty(element, "_source", {
+            configurable: false,
+            enumerable: false,
+            writable: false,
+            value: source
+        });
+        if (Object.freeze) {
+            Object.freeze(element.props);
+            Object.freeze(element);
+        }
+    }
+
+    return element;
+};
+```
+
+```js
+const hasSymbol = typeof Symbol === "function" && Symbol.for;
+
+export const REACT_ELEMENT_TYPE = hasSymbol
+    ? Symbol.for("react.element")
+    : 0xeac7;
 ```
 
 ## isValidElement
@@ -187,9 +260,9 @@ Children: {
     only,
 }
 ```
-详情请参阅[React.Children](sections/React.Children.md)
 
+详情请参阅[React.Children](sections/React.Children.md)
 
 ## version
 
-当前React的版本号
+当前 React 的版本号

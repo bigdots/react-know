@@ -1,6 +1,5 @@
 # React.Children
 
-loading...
 
 ## map
 
