@@ -3,14 +3,34 @@
 ```jsx
 // 创建组件
 class Welcome extends React.Component {
+    state = {
+        color: 'black'
+    }
+
+    handleClick = ()=> {
+        this.setState{
+            color: 'red'
+        }
+    }
+
     render() {
-        return <h1>Hello, {this.props.name}</h1>;
+        return <h1 style={{color: this.state.color}} onClick={this.handleClick}>Hello, {this.props.name}</h1>;
     }
 }
 
 // 渲染到页面
 ReactDOM.render(<Welcome name="world" />, document.getElementById("root"));
 ```
+
+
+
+
+
+
+
+
+
+
 
 ## 第一步：声明组件并继承 Component 类
 
