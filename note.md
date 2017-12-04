@@ -1,36 +1,3 @@
-实例：
-
-```jsx
-// 创建组件
-class Welcome extends React.Component {
-    state = {
-        color: 'black'
-    }
-
-    handleClick = ()=> {
-        this.setState{
-            color: 'red'
-        }
-    }
-
-    render() {
-        return <h1 style={{color: this.state.color}} onClick={this.handleClick}>Hello, {this.props.name}</h1>;
-    }
-}
-
-// 渲染到页面
-ReactDOM.render(<Welcome name="world" />, document.getElementById("root"));
-```
-
-
-
-
-
-
-
-
-
-
 
 ## 第一步：声明组件并继承 Component 类
 
@@ -43,36 +10,6 @@ function Component(props, context, updater) {
     this.refs = emptyObject;
     this.updater = updater || ReactNoopUpdateQueue;
 }
-```
-
-## 第二步：组件执行 render 方法，返回虚拟 DOM
-
-### Jsx 语法转化，创建虚拟 Dom
-
-```js
-return React.createElement("h1", null, "Hello, ", this.props.name);
-```
-
-```js
-React.createElement = (type, config, children){ return element };
-```
-
-### React.createElement
-
-返回一个以下结构的虚拟 DOm：
-
-```js
-var element = {
-    $$typeof: REACT_ELEMENT_TYPE,
-    type: type,
-    key: key,
-    ref: ref,
-    props: {
-        children: element || [ element... ],
-        ...
-    },
-    _owner: owner
-};
 ```
 
 ## 第三步：执行 ReactDOM.render，渲染虚拟 DOM
