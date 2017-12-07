@@ -264,7 +264,7 @@ function instantiateReactComponent(node, shouldHaveDebugID) {
 }
 ```
 
-#### batchedMountComponentIntoNode
+#### batchedMountComponentIntoNode  以transaction事务的形式调用mountComponentIntoNode
 
 ```js
 /**
@@ -297,7 +297,7 @@ function batchedMountComponentIntoNode(
 }
 ```
 
-##### mountComponentIntoNode
+##### mountComponentIntoNode 将虚拟DOM解析成html
 
 ```js
 /**
@@ -350,7 +350,7 @@ function mountComponentIntoNode(
 }
 ```
 
-###### _mountImageIntoNode
+###### _mountImageIntoNode 将转化后的html插入到页面中
 
 ```js
 _mountImageIntoNode: function(
