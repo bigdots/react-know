@@ -27,8 +27,19 @@ React.createElement(
 `createElement` 是React提供的一个创建虚拟DOM的方法。它接收三个参数`type`、 `config`以及`children`，并且返回一个`element`( 虚拟DOM )。我们可以看下下面的源码：
 
 ```js
+// src/isomorphic/React.js
 React.createElement = function(type, config, children){
-    return element
+
+    var props = {};
+    var key = null;
+    var ref = null;
+    var self = null;
+    var source = null;
+
+
+    //从config中取出key、ref、self、source以及props的各个键值
+
+    return ReactElement
 };
 ```
 
@@ -42,13 +53,13 @@ React.createElement = function(type, config, children){
 react的虚拟DOM结构：
 
 ```js
-var element = {
+var ReactElement = {
     $$typeof: REACT_ELEMENT_TYPE,
     type: type,
     key: key,
     ref: ref,
     props: {
-        children: element || [ element... ],
+        children: ReactElement || [ ReactElement... ],
         ...
     },
     _owner: owner

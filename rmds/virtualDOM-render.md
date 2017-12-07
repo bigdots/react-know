@@ -34,187 +34,223 @@ render 接收三个参数：
 。
 
 ```js
-renderSubtreeIntoContainer = function(
+renderSubtreeIntoContainer: function(
     parentComponent,
-    children,
+    nextElement,
     container,
-    forceHydrate,
     callback
 ) {
-    let root = container._reactRootContainer;
-    // 如果container._reactRootContainer 存在
-    if (!root) {
-        const shouldHydrate =
-            forceHydrate || shouldHydrateDueToLegacyHeuristic(container);
-        const newRoot = DOMRenderer.createContainer(container, shouldHydrate);
-        root = container._reactRootContainer = newRoot;
-        DOMRenderer.unbatchedUpdates(() => {
-            DOMRenderer.updateContainer(
-                children,
-                newRoot,
-                parentComponent,
-                callback
-            );
-        });
+    // ReactUpdateQueue 实现了在下一次的调和算法中更新state
+    // validateCallback 检验回调函数的合法性
+    ReactUpdateQueue.validateCallback(callback, "ReactDOM.render");
+
+
+    //  TopLevelWrapper是一个构造函数，this.rootID唯一
+    var nextWrappedElement = React.createElement(TopLevelWrapper, {
+        child: nextElement
+    });
+
+    // parentComponent为null，nextContext={}
+    var nextContext;
+    if (parentComponent) {
+        var parentInst = ReactInstanceMap.get(parentComponent);
+        nextContext = parentInst._processChildContext(parentInst._context);
     } else {
-        DOMRenderer.updateContainer(children, root, parentComponent, callback);
+        nextContext = emptyObject;
     }
-    //返回一个引用， 指向 ReactComponent 的根实例
-    return DOMRenderer.getPublicRootInstance(root);
-};
-```
 
-```js
-function getPublicRootInstance(container){
-      const containerFiber = container.current;
-      if (!containerFiber.child) {
-        return null;
-      }
-      switch (containerFiber.child.tag) {
-        case HostComponent:
-          return getPublicInstance(containerFiber.child.stateNode);
-        default:
-          return containerFiber.child.stateNode;
-      }
-    },
-```
+    var prevComponent = getTopLevelWrapperInContainer(container);
 
-```js
-//判断跟节点是否为元素节点并且拥有'data-reactroot'属性
-function shouldHydrateDueToLegacyHeuristic(container) {
-    const rootElement = getReactRootElementInContainer(container);
-    return !!(
-        rootElement &&
-        rootElement.nodeType === ELEMENT_NODE && //ELEMENT_NODE = 1  即元素节点
-        rootElement.hasAttribute(ROOT_ATTRIBUTE_NAME)
-    ); // ROOT_ATTRIBUTE_NAME='data-reactroot'
-}
-```
-
-```js
-DOMRenderer = ReactFiberReconciler({});
-```
-
-```js
-DOMRenderer.createContainer = function() {
-    return {};
-};
-```
-
-```js
-ReactFiberReconciler = function(config){
-    return {
-        // container,
-        // shouldHydrate
-        createContainer(containerInfo, hydrate) {
-            return createFiberRoot(containerInfo, hydrate);
-        },
-        ...
-    }
-}
-```
-
-```js
-function createFiberRoot(containerInfo, hydrate) {
-    const uninitializedFiber = createHostRootFiber();
-    const root = {
-        current: uninitializedFiber,
-        containerInfo: containerInfo,
-        pendingChildren: null,
-        remainingExpirationTime: NoWork,
-        isReadyForCommit: false,
-        finishedWork: null,
-        context: null,
-        pendingContext: null,
-        hydrate,
-        nextScheduledRoot: null
-    };
-    uninitializedFiber.stateNode = root;
-    return root;
-}
-```
-
-```js
-function unbatchedUpdates(fn) {
-    if (isBatchingUpdates && !isUnbatchingUpdates) {
-        isUnbatchingUpdates = true;
-        try {
-            return fn();
-        } finally {
-            isUnbatchingUpdates = false;
+    if (prevComponent) {
+        var prevWrappedElement = prevComponent._currentElement;
+        var prevElement = prevWrappedElement.props.child;
+        if (shouldUpdateReactComponent(prevElement, nextElement)) {
+            var publicInst = prevComponent._renderedComponent.getPublicInstance();
+            var updatedCallback =
+                callback &&
+                function() {
+                    callback.call(publicInst);
+                };
+            ReactMount._updateRootComponent(
+                prevComponent,
+                nextWrappedElement,
+                nextContext,
+                container,
+                updatedCallback
+            );
+            return publicInst;
+        } else {
+            ReactMount.unmountComponentAtNode(container);
         }
     }
-    return fn();
-}
-```
 
-```js
-function updateContainer(element, container, parentComponent, callback) {
-    // TODO: If this is a nested container, this won't be the root.
-    const current = container.current;
+    var reactRootElement = getReactRootElementInContainer(container);
+    var containerHasReactMarkup =
+        reactRootElement && !!internalGetID(reactRootElement);
+    var containerHasNonRootReactChild = hasNonRootReactChild(container);
 
-    const context = getContextForSubtree(parentComponent);
-    if (container.context === null) {
-        container.context = context;
-    } else {
-        container.pendingContext = context;
+    var shouldReuseMarkup =
+        containerHasReactMarkup &&
+        !prevComponent &&
+        !containerHasNonRootReactChild;
+    var component = ReactMount._renderNewRootComponent(
+        nextWrappedElement,
+        container,
+        shouldReuseMarkup,
+        nextContext
+    )._renderedComponent.getPublicInstance();
+    if (callback) {
+        callback.call(component);
     }
-
-    scheduleTopLevelUpdate(current, element, callback);
-}
-```
-
-```js
-function getContextForSubtree(parentComponent) {
-    // 渲染根结点时parentComponent = null
-    if (!parentComponent) {
-        return emptyObject; //{}
-    }
-
-    // 返回parentComponent的_reactInternalFiber
-    const fiber = ReactInstanceMap.get(parentComponent);
-    const parentContext = findCurrentUnmaskedContext(fiber);
-    return isContextProvider(fiber)
-        ? processChildContext(fiber, parentContext)
-        : parentContext;
-}
-```
-
-```js
-ReactInstanceMap.get = function(key) {
-    return key._reactInternalFiber;
+    return component;
 };
 ```
 
 ```js
-function scheduleTopLevelUpdate(current, element, callback) {
-    callback = callback === undefined ? null : callback;
-    let expirationTime;
-    // Check if the top-level element is an async wrapper component. If so,
-    // treat updates to the root as async. This is a bit weird but lets us
-    // avoid a separate `renderAsync` API.
-    if (
-        enableAsyncSubtreeAPI &&
-        element != null &&
-        (element: any).type != null &&
-        (element: any).type.prototype != null &&
-        (element: any).type.prototype.unstable_isAsyncReactComponent === true
-    ) {
-        expirationTime = computeAsyncExpiration();
+var topLevelRootCounter = 1;
+var TopLevelWrapper = function() {
+    this.rootID = topLevelRootCounter++;
+};
+```
+
+```js
+getTopLevelWrapperInContainer: function(container){
+    var root = getHostRootInstanceInContainer(container);
+    return root ? root._hostContainerInfo._topLevelWrapper : null;
+}
+```
+
+```js
+// reactDOM.render 返回rootEl即container中的根元素
+getHostRootInstanceInContainer: function(container){
+    // 返回container中的根元素
+    var rootEl = getReactRootElementInContainer(container);
+    var prevHostInstance =
+    rootEl && ReactDOMComponentTree.getInstanceFromNode(rootEl);
+    return prevHostInstance && !prevHostInstance._hostParent
+            ? prevHostInstance
+            : null;
+}
+```
+
+```js
+getReactRootElementInContainer: function(container){
+    if (!container) {
+    return null;
+  }
+
+  if (container.nodeType === DOC_NODE_TYPE) {
+    // container = document
+    return container.documentElement;
+  } else {
+    return container.firstChild;
+  }
+}
+```
+
+```js
+// 传入一个DOM节点，返回一个 ReactDOMComponent／ReactDOMTextComponent的实例 或 null
+ReactDOMComponentTree.getInstanceFromNode = function(node) {
+    var inst = getClosestInstanceFromNode(node);
+    if (inst != null && inst._hostNode === node) {
+        return inst;
     } else {
-        expirationTime = computeExpirationForFiber(current);
+        return null;
+    }
+};
+```
+
+```js
+var internalInstanceKey =
+    "__reactInternalInstance$" +
+    Math.random()
+        .toString(36)
+        .slice(2);
+/**
+ * Given a DOM node, return the closest ReactDOMComponent or
+ * ReactDOMTextComponent instance ancestor.
+ */
+// 传入一个DOM节点，返回一个最近的 ReactDOMComponent／ReactDOMTextComponent实例的祖先元素 或者null
+function getClosestInstanceFromNode(node) {
+    if (node[internalInstanceKey]) {
+        return node[internalInstanceKey];
     }
 
-    const update = {
-        expirationTime,
-        partialState: { element },
-        callback,
-        isReplace: false,
-        isForced: false,
-        nextCallback: null,
-        next: null
-    };
-    insertUpdateIntoFiber(current, update);
-    scheduleWork(current, expirationTime);
+    // Walk up the tree until we find an ancestor whose instance we have cached.
+    // 遍历nodeTree，找到缓存过的实例的祖先元素;
+    var parents = [];
+    while (!node[internalInstanceKey]) {
+        // 当node[internalInstanceKey]不存在，则node = node.parentNode;
+        parents.push(node);
+        if (node.parentNode) {
+            node = node.parentNode;
+        } else {
+            // Top of the tree. This node must not be part of a React tree (or is
+            // unmounted, potentially).
+            return null;
+        }
+    }
+
+    var closest;
+    var inst;
+    for (; node && (inst = node[internalInstanceKey]); node = parents.pop()) {
+        closest = inst;
+        if (parents.length) {
+            precacheChildNodes(inst, node);
+        }
+    }
+
+    return closest;
+}
+```
+
+```js
+/**
+ * Populate `_hostNode` on each child of `inst`, assuming that the children
+ * match up with the DOM (element) children of `node`.
+ *
+ * We cache entire levels at once to avoid an n^2 problem where we access the
+ * children of a node sequentially and have to walk from the start to our target
+ * node every time.
+ *
+ * Since we update `_renderedChildren` and the actual DOM at (slightly)
+ * different times, we could race here and see a newer `_renderedChildren` than
+ * the DOM nodes we see. To avoid this, ReactMultiChild calls
+ * `prepareToManageChildren` before we change `_renderedChildren`, at which
+ * time the container's child nodes are always cached (until it unmounts).
+ */
+
+/**
+ * 为实例的每一个 child 添加 _hostNode
+ * 预缓存子节点
+ */
+
+function precacheChildNodes(inst, node) {
+  if (inst._flags & Flags.hasCachedChildNodes) {
+    return;
+  }
+  var children = inst._renderedChildren;
+  var childNode = node.firstChild;
+  outer: for (var name in children) {
+    if (!children.hasOwnProperty(name)) {
+      continue;
+    }
+    var childInst = children[name];
+    var childID = getRenderedHostOrTextFromComponent(childInst)._domID;
+    if (childID === 0) {
+      // We're currently unmounting this child in ReactMultiChild; skip it.
+      continue;
+    }
+    // We assume the child nodes are in the same order as the child instances.
+    for (; childNode !== null; childNode = childNode.nextSibling) {
+      if (shouldPrecacheNode(childNode, childID)) {
+        precacheNode(childInst, childNode);
+        continue outer;
+      }
+    }
+    // We reached the end of the DOM children without finding an ID match.
+    invariant(false, 'Unable to find element with ID %s.', childID);
+  }
+  inst._flags |= Flags.hasCachedChildNodes;
 }
 ```
