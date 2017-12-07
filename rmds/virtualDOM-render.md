@@ -127,7 +127,7 @@ _renderSubtreeIntoContainer: function(
 };
 ```
 
-### shouldUpdateReactComponent 组件更新机制 —— React DOM diff算法
+### shouldUpdateReactComponent 组件更新机制 —— React DOM diff 算法
 
 `shouldUpdateReactComponent` 传入前后两次 ReactElement: `prevElement` 和
 `nextElement`。返回 :
@@ -175,6 +175,7 @@ function shouldUpdateReactComponent(prevElement, nextElement) {
     }
 }
 ```
+
 ### _renderNewRootComponent 渲染新的根组件
 
 ```js
@@ -208,12 +209,13 @@ _renderNewRootComponent: function(
 
 #### instantiateReactComponent 创建将被挂载的组件实例
 
-`instantiateReactComponent` 创建一个将被挂载的实例并返回。这里根据传入的node会有四种处理情况：
-- node 为 `null/fasle`
-- node 为  原生 `html`
-- node 为 `ReactComponent`
-- node 为  `string/number`
+`instantiateReactComponent` 创建一个将被挂载的实例并返回。这里根据传入的 node 会
+有四种处理情况：
 
+* node 为 `null/fasle`
+* node 为 原生 `html`
+* node 为 `ReactComponent`
+* node 为 `string/number`
 
 ```js
 //path: /src/renderers/shared/stack/reconciler/instantiateReactComponent.js
@@ -262,46 +264,147 @@ function instantiateReactComponent(node, shouldHaveDebugID) {
 }
 ```
 
+#### batchedMountComponentIntoNode
 
+```js
+/**
+ * Batched mount.
+ *
+ * @param {ReactComponent} componentInstance The instance to mount.
+ * @param {DOMElement} container DOM element to mount into.
+ * @param {boolean} shouldReuseMarkup If true, do not insert markup
+ */
+function batchedMountComponentIntoNode(
+    componentInstance,
+    container,
+    shouldReuseMarkup,
+    context
+) {
+    var transaction = ReactUpdates.ReactReconcileTransaction.getPooled(
+        /* useCreateElement */
+        !shouldReuseMarkup && ReactDOMFeatureFlags.useCreateElement
+    );
+    transaction.perform(
+        mountComponentIntoNode,
+        null,
+        componentInstance,
+        container,
+        transaction,
+        shouldReuseMarkup,
+        context
+    );
+    ReactUpdates.ReactReconcileTransaction.release(transaction);
+}
+```
 
+##### mountComponentIntoNode
 
+```js
+/**
+ * Mounts this component and inserts it into the DOM.
+ *
+ * @param {ReactComponent} componentInstance The instance to mount.
+ * @param {DOMElement} container DOM element to mount into.
+ * @param {ReactReconcileTransaction} transaction
+ * @param {boolean} shouldReuseMarkup If true, do not insert markup
+ */
+function mountComponentIntoNode(
+    wrapperInstance,
+    container,
+    transaction,
+    shouldReuseMarkup,
+    context
+) {
+    var markerName;
+    if (ReactFeatureFlags.logTopLevelRenders) {
+        var wrappedElement = wrapperInstance._currentElement.props.child;
+        var type = wrappedElement.type;
+        markerName =
+            "React mount: " +
+            (typeof type === "string" ? type : type.displayName || type.name);
+        console.time(markerName);
+    }
 
+    // 调用mountComponent方法来渲染组件, 返回React组件解析的HTML
+    var markup = ReactReconciler.mountComponent(
+        wrapperInstance,
+        transaction,
+        null,
+        ReactDOMContainerInfo(wrapperInstance, container),
+        context,
+        0 /* parentDebugID */
+    );
 
+    if (markerName) {
+        console.timeEnd(markerName);
+    }
 
+    wrapperInstance._renderedComponent._topLevelWrapper = wrapperInstance;
+    ReactMount._mountImageIntoNode(
+        markup,
+        container,
+        wrapperInstance,
+        shouldReuseMarkup,
+        transaction
+    );
+}
+```
 
+###### _mountImageIntoNode
 
+```js
+_mountImageIntoNode: function(
+    markup,
+    container,
+    instance,
+    shouldReuseMarkup,
+    transaction,
+  ) {
+    // 对于ReactDOM.render()调用，shouldReuseMarkup为false
+    if (shouldReuseMarkup) {
+      var rootElement = getReactRootElementInContainer(container);
+      if (ReactMarkupChecksum.canReuseMarkup(markup, rootElement)) {
+        ReactDOMComponentTree.precacheNode(instance, rootElement);
+        return;
+      } else {
+        var checksum = rootElement.getAttribute(
+          ReactMarkupChecksum.CHECKSUM_ATTR_NAME,
+        );
+        rootElement.removeAttribute(ReactMarkupChecksum.CHECKSUM_ATTR_NAME);
 
+        var rootMarkup = rootElement.outerHTML;
+        rootElement.setAttribute(
+          ReactMarkupChecksum.CHECKSUM_ATTR_NAME,
+          checksum,
+        );
 
+        var normalizedMarkup = markup;
 
+        var diffIndex = firstDifferenceIndex(normalizedMarkup, rootMarkup);
+        var difference =
+          ' (client) ' +
+          normalizedMarkup.substring(diffIndex - 20, diffIndex + 20) +
+          '\n (server) ' +
+          rootMarkup.substring(diffIndex - 20, diffIndex + 20);
+      }
+    }
 
+    if (transaction.useCreateElement) {
+        // 清空container的子节点
+        while (container.lastChild) {
+            container.removeChild(container.lastChild);
+        }
+        DOMLazyTree.insertTreeBefore(container, markup, null);
+    } else {
+        // 将markup (HTML)设置到container这个DOM元素的innerHTML属性上，这样就插入到了DOM中了
+        setInnerHTML(container, markup);
+        // 将本次虚拟DOM保存到container这个DOM元素的firstChild这个原生节点上。简单理解就是将Virtual DOM保存到内存中，这样可以大大提高交互效率
+        ReactDOMComponentTree.precacheNode(instance, container.firstChild);
+    }
+  }
+```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+<!-- =========================== ignore ====================================== -->
 
 ```js
 var topLevelRootCounter = 1;
