@@ -11,15 +11,14 @@ ReactDOM.render 是 React 的最基本方法用于将 react 元素转化为 HTML
 的 DOM 节点。
 
 ```js
-ReactDOM.render = function(element, container, callback) {
-    return renderSubtreeIntoContainer(
-        null, //父节点
-        element, // 要渲染的React节点
-        container, // 容器节点，必须是DOM节点: document.getElementById("root")
-        false,
-        callback // 回调函数
+render: function(nextElement, container, callback) {
+    return ReactMount._renderSubtreeIntoContainer(
+      null,
+      nextElement,
+      container,
+      callback,
     );
-};
+}
 ```
 
 render 接收三个参数：
@@ -35,7 +34,16 @@ render 接收三个参数：
 
 ```js
 // path: /src/renderers/dom/client/ReactMount.js
-renderSubtreeIntoContainer: function(
+
+/**
+ * @param {parentComponent} 父组件，对于第一次渲染，为null
+ * @param {nextElement} 要插入到DOM中的ReactComponent
+ * @param {container} 要插入到的容器
+ * @param {callback} 回调函数
+ *
+ * @return {component}  返回ReactComponent，对于ReactDOM.render()调用，不用管返回值。
+ */
+_renderSubtreeIntoContainer: function(
     parentComponent,
     nextElement,
     container,
@@ -47,6 +55,7 @@ renderSubtreeIntoContainer: function(
 
 
     //  TopLevelWrapper是一个构造函数，this.rootID唯一
+    //  封装ReactElement，将nextElement挂载到wrapper的props属性下
     var nextWrappedElement = React.createElement(TopLevelWrapper, {
         child: nextElement
     });
@@ -60,11 +69,20 @@ renderSubtreeIntoContainer: function(
         nextContext = emptyObject;
     }
 
+    // 获取要插入到的容器的前一次的ReactComponent，这是为了做DOM diff
+    // 对于ReactDOM.render()调用，prevComponent为null
     var prevComponent = getTopLevelWrapperInContainer(container);
 
     if (prevComponent) {
+        // 从prevComponent中获取到prevElement这个数据对象
         var prevWrappedElement = prevComponent._currentElement;
         var prevElement = prevWrappedElement.props.child;
+
+
+
+        // DOM diff精髓，同一层级内，type和key不变时，只用update就行。否则先unmount组件再mount组件
+        // 这是React为了避免递归太深，而做的DOM diff前提假设。它只对同一DOM层级，type相同，key(如果有)相同的组件做DOM diff，否则不用比较，直接先unmount再mount。这个假设使得diff算法复杂度从O(n^3)降低为O(n).
+        // shouldUpdateReactComponent源码请看后面的分析
         if (shouldUpdateReactComponent(prevElement, nextElement)) {
             var publicInst = prevComponent._renderedComponent.getPublicInstance();
             var updatedCallback =
@@ -72,6 +90,7 @@ renderSubtreeIntoContainer: function(
                 function() {
                     callback.call(publicInst);
                 };
+            // 只需要update，调用_updateRootComponent，然后直接return了
             ReactMount._updateRootComponent(
                 prevComponent,
                 nextWrappedElement,
@@ -81,6 +100,7 @@ renderSubtreeIntoContainer: function(
             );
             return publicInst;
         } else {
+            // 不做update，直接先卸载再挂载。即unmountComponent,再mountComponent。mountComponent在后面代码中进行
             ReactMount.unmountComponentAtNode(container);
         }
     }
@@ -94,18 +114,234 @@ renderSubtreeIntoContainer: function(
         containerHasReactMarkup &&
         !prevComponent &&
         !containerHasNonRootReactChild;
+
+    //将ReactElement元素，转化为DOM元素并且插入到对应的Container元素中去；
     var component = ReactMount._renderNewRootComponent(
         nextWrappedElement,
         container,
         shouldReuseMarkup,
         nextContext
     )._renderedComponent.getPublicInstance();
+
+    // 调用callback
     if (callback) {
         callback.call(component);
     }
     return component;
 };
 ```
+
+
+`shouldUpdateReactComponent` 传入前后两次ReactElement: `prevElement` 和 `nextElement`。返回:
+
+- `true` : 更新 `prevElement`
+- `false` : 销毁 `prevElement`， 挂载 `nextElement`
+
+```js
+/**
+ * Given a `prevElement` and `nextElement`, determines if the existing
+ * instance should be updated as opposed to being destroyed or replaced by a new
+ * instance. Both arguments are elements. This ensures that this logic can
+ * operate on stateless trees without any backing instance.
+ *
+ * @param {?object} prevElement
+ * @param {?object} nextElement
+ * @return {boolean} True if the existing instance should be updated.
+ * @protected
+ */
+function shouldUpdateReactComponent(prevElement, nextElement) {
+    // 两次ReactElement都为null或者false中的任意一项，返回true。
+    var prevEmpty = prevElement === null || prevElement === false;
+    var nextEmpty = nextElement === null || nextElement === false;
+    if (prevEmpty || nextEmpty) {
+        return prevEmpty === nextEmpty;
+    }
+
+    var prevType = typeof prevElement;
+    var nextType = typeof nextElement;
+
+    /**
+     * React DOM diff算法
+     *
+     * prevElement 和 nextElement 任意一个的类型为数字或者字符串，直接返回true；
+     * 比较前后俩次 ReactElement 的type 和 key属性是否相等。进行返回；
+     */
+    if (prevType === "string" || prevType === "number") {
+        return nextType === "string" || nextType === "number";
+    } else {
+        return (
+            nextType === "object" &&
+            prevElement.type === nextElement.type &&
+            prevElement.key === nextElement.key
+        );
+    }
+}
+```
+
+```js
+_renderNewRootComponent: function(
+    nextElement,
+    container,
+    shouldReuseMarkup,
+    context,
+  ) {
+
+    ReactBrowserEventEmitter.ensureScrollValueMonitoring();
+
+    // 根据ReactElement中不同的type字段，创建不同类型的组件对象。
+    var componentInstance = instantiateReactComponent(nextElement, false);
+
+    // 处理batchedMountComponentIntoNode方法调用，将ReactComponent插入DOM中，
+    ReactUpdates.batchedUpdates(
+      batchedMountComponentIntoNode,
+      componentInstance,
+      container,
+      shouldReuseMarkup,
+      context,
+    );
+
+    var wrapperID = componentInstance._instance.rootID;
+    instancesByReactRootID[wrapperID] = componentInstance;
+
+    return componentInstance;
+  },
+```
+
+`instantiateReactComponent` 创建一个将被挂载的实例。
+
+```js
+//path: /src/renderers/shared/stack/reconciler/instantiateReactComponent.js
+/**
+ * Given a ReactNode, create an instance that will actually be mounted.
+ *
+ * @param {ReactNode} node
+ * @param {boolean} shouldHaveDebugID
+ * @return {object} A new instance of the element's constructor.
+ * @protected
+ */
+function instantiateReactComponent(node, shouldHaveDebugID) {
+  var instance;
+
+  if (node === null || node === false) {
+    instance = ReactEmptyComponent.create(instantiateReactComponent);
+  } else if (typeof node === 'object') {
+    var element = node;
+    var type = element.type;
+    if (typeof type !== 'function' && typeof type !== 'string') {
+      var info = '';
+      if (__DEV__) {
+        if (
+          type === undefined ||
+          (typeof type === 'object' &&
+            type !== null &&
+            Object.keys(type).length === 0)
+        ) {
+          info +=
+            ' You likely forgot to export your component from the file ' +
+            "it's defined in.";
+        }
+      }
+      info += getDeclarationErrorAddendum(element._owner);
+      invariant(
+        false,
+        'Element type is invalid: expected a string (for built-in components) ' +
+          'or a class/function (for composite components) but got: %s.%s',
+        type == null ? type : typeof type,
+        info,
+      );
+    }
+
+    // Special case string values
+    if (typeof element.type === 'string') {
+      instance = ReactHostComponent.createInternalComponent(element);
+    } else if (isInternalComponentType(element.type)) {
+      // This is temporarily available for custom components that are not string
+      // representations. I.e. ART. Once those are updated to use the string
+      // representation, we can drop this code path.
+      instance = new element.type(element);
+
+      // We renamed this. Allow the old name for compat. :(
+      if (!instance.getHostNode) {
+        instance.getHostNode = instance.getNativeNode;
+      }
+    } else {
+      instance = new ReactCompositeComponentWrapper(element);
+    }
+  } else if (typeof node === 'string' || typeof node === 'number') {
+    instance = ReactHostComponent.createInstanceForText(node);
+  } else {
+    invariant(false, 'Encountered invalid React node of type %s', typeof node);
+  }
+
+  if (__DEV__) {
+    warning(
+      typeof instance.mountComponent === 'function' &&
+        typeof instance.receiveComponent === 'function' &&
+        typeof instance.getHostNode === 'function' &&
+        typeof instance.unmountComponent === 'function',
+      'Only React Components can be mounted.',
+    );
+  }
+
+  // These two fields are used by the DOM and ART diffing algorithms
+  // respectively. Instead of using expandos on components, we should be
+  // storing the state needed by the diffing algorithms elsewhere.
+  instance._mountIndex = 0;
+  instance._mountImage = null;
+
+  if (__DEV__) {
+    instance._debugID = shouldHaveDebugID ? getNextDebugID() : 0;
+  }
+
+  // Internal instances should fully constructed at this point, so they should
+  // not get any new fields added to them at this point.
+  if (__DEV__) {
+    if (Object.preventExtensions) {
+      Object.preventExtensions(instance);
+    }
+  }
+
+  return instance;
+}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ```js
 var topLevelRootCounter = 1;
@@ -229,31 +465,31 @@ function getClosestInstanceFromNode(node) {
  */
 
 function precacheChildNodes(inst, node) {
-  if (inst._flags & Flags.hasCachedChildNodes) {
-    return;
-  }
-  var children = inst._renderedChildren;
-  var childNode = node.firstChild;
-  outer: for (var name in children) {
-    if (!children.hasOwnProperty(name)) {
-      continue;
+    if (inst._flags & Flags.hasCachedChildNodes) {
+        return;
     }
-    var childInst = children[name];
-    var childID = getRenderedHostOrTextFromComponent(childInst)._domID;
-    if (childID === 0) {
-      // We're currently unmounting this child in ReactMultiChild; skip it.
-      continue;
+    var children = inst._renderedChildren;
+    var childNode = node.firstChild;
+    outer: for (var name in children) {
+        if (!children.hasOwnProperty(name)) {
+            continue;
+        }
+        var childInst = children[name];
+        var childID = getRenderedHostOrTextFromComponent(childInst)._domID;
+        if (childID === 0) {
+            // We're currently unmounting this child in ReactMultiChild; skip it.
+            continue;
+        }
+        // We assume the child nodes are in the same order as the child instances.
+        for (; childNode !== null; childNode = childNode.nextSibling) {
+            if (shouldPrecacheNode(childNode, childID)) {
+                precacheNode(childInst, childNode);
+                continue outer;
+            }
+        }
+        // We reached the end of the DOM children without finding an ID match.
+        invariant(false, "Unable to find element with ID %s.", childID);
     }
-    // We assume the child nodes are in the same order as the child instances.
-    for (; childNode !== null; childNode = childNode.nextSibling) {
-      if (shouldPrecacheNode(childNode, childID)) {
-        precacheNode(childInst, childNode);
-        continue outer;
-      }
-    }
-    // We reached the end of the DOM children without finding an ID match.
-    invariant(false, 'Unable to find element with ID %s.', childID);
-  }
-  inst._flags |= Flags.hasCachedChildNodes;
+    inst._flags |= Flags.hasCachedChildNodes;
 }
 ```
