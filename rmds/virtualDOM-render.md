@@ -1,4 +1,4 @@
-## 渲染虚拟 DOM: ReactDOM.render
+# 渲染虚拟 DOM: ReactDOM.render
 
 上一节，我们已经创建了一个组件，现在我们将这个组件渲染到页面中。
 
@@ -29,12 +29,13 @@ render 接收三个参数：
 
 并且返回 renderSubtreeIntoContainer 函数的调用。
 
+## renderSubtreeIntoContainer 渲染组件树到容器节点
+
 `renderSubtreeIntoContainer`顾名思义，它的功能是将子树注入到指定的 container 中
 。
 
 ```js
 // path: /src/renderers/dom/client/ReactMount.js
-
 /**
  * @param {parentComponent} 父组件，对于第一次渲染，为null
  * @param {nextElement} 要插入到DOM中的ReactComponent
@@ -52,7 +53,6 @@ _renderSubtreeIntoContainer: function(
     // ReactUpdateQueue 实现了在下一次的调和算法中更新state
     // validateCallback 检验回调函数的合法性
     ReactUpdateQueue.validateCallback(callback, "ReactDOM.render");
-
 
     //  TopLevelWrapper是一个构造函数，this.rootID唯一
     //  封装ReactElement，将nextElement挂载到wrapper的props属性下
@@ -78,11 +78,7 @@ _renderSubtreeIntoContainer: function(
         var prevWrappedElement = prevComponent._currentElement;
         var prevElement = prevWrappedElement.props.child;
 
-
-
-        // DOM diff精髓，同一层级内，type和key不变时，只用update就行。否则先unmount组件再mount组件
-        // 这是React为了避免递归太深，而做的DOM diff前提假设。它只对同一DOM层级，type相同，key(如果有)相同的组件做DOM diff，否则不用比较，直接先unmount再mount。这个假设使得diff算法复杂度从O(n^3)降低为O(n).
-        // shouldUpdateReactComponent源码请看后面的分析
+        // shouldUpdateReactComponent做diff运算，判断组件是更新还是卸载后重新挂载
         if (shouldUpdateReactComponent(prevElement, nextElement)) {
             var publicInst = prevComponent._renderedComponent.getPublicInstance();
             var updatedCallback =
@@ -131,11 +127,13 @@ _renderSubtreeIntoContainer: function(
 };
 ```
 
+### shouldUpdateReactComponent 组件更新机制 —— React DOM diff算法
 
-`shouldUpdateReactComponent` 传入前后两次ReactElement: `prevElement` 和 `nextElement`。返回:
+`shouldUpdateReactComponent` 传入前后两次 ReactElement: `prevElement` 和
+`nextElement`。返回 :
 
-- `true` : 更新 `prevElement`
-- `false` : 销毁 `prevElement`， 挂载 `nextElement`
+* `true` : 更新 `prevElement`
+* `false` : 销毁 `prevElement`， 挂载 `nextElement`
 
 ```js
 /**
@@ -177,6 +175,7 @@ function shouldUpdateReactComponent(prevElement, nextElement) {
     }
 }
 ```
+### _renderNewRootComponent 渲染新的根组件
 
 ```js
 _renderNewRootComponent: function(
@@ -207,7 +206,14 @@ _renderNewRootComponent: function(
   },
 ```
 
-`instantiateReactComponent` 创建一个将被挂载的实例。
+#### instantiateReactComponent 创建将被挂载的组件实例
+
+`instantiateReactComponent` 创建一个将被挂载的实例并返回。这里根据传入的node会有四种处理情况：
+- node 为 `null/fasle`
+- node 为  原生 `html`
+- node 为 `ReactComponent`
+- node 为  `string/number`
+
 
 ```js
 //path: /src/renderers/shared/stack/reconciler/instantiateReactComponent.js
@@ -220,91 +226,45 @@ _renderNewRootComponent: function(
  * @protected
  */
 function instantiateReactComponent(node, shouldHaveDebugID) {
-  var instance;
+    var instance;
 
-  if (node === null || node === false) {
-    instance = ReactEmptyComponent.create(instantiateReactComponent);
-  } else if (typeof node === 'object') {
-    var element = node;
-    var type = element.type;
-    if (typeof type !== 'function' && typeof type !== 'string') {
-      var info = '';
-      if (__DEV__) {
-        if (
-          type === undefined ||
-          (typeof type === 'object' &&
-            type !== null &&
-            Object.keys(type).length === 0)
-        ) {
-          info +=
-            ' You likely forgot to export your component from the file ' +
-            "it's defined in.";
+    if (node === null || node === false) {
+        instance = ReactEmptyComponent.create(instantiateReactComponent);
+    } else if (typeof node === "object") {
+        var element = node;
+        var type = element.type;
+
+        if (typeof element.type === "string") {
+            // type为string则表示DOM原生对象，比如div span等
+            instance = ReactHostComponent.createInternalComponent(element);
+        } else if (isInternalComponentType(element.type)) {
+            // 忽略
+        } else {
+            // React自定义组件
+            instance = new ReactCompositeComponentWrapper(element);
         }
-      }
-      info += getDeclarationErrorAddendum(element._owner);
-      invariant(
-        false,
-        'Element type is invalid: expected a string (for built-in components) ' +
-          'or a class/function (for composite components) but got: %s.%s',
-        type == null ? type : typeof type,
-        info,
-      );
-    }
-
-    // Special case string values
-    if (typeof element.type === 'string') {
-      instance = ReactHostComponent.createInternalComponent(element);
-    } else if (isInternalComponentType(element.type)) {
-      // This is temporarily available for custom components that are not string
-      // representations. I.e. ART. Once those are updated to use the string
-      // representation, we can drop this code path.
-      instance = new element.type(element);
-
-      // We renamed this. Allow the old name for compat. :(
-      if (!instance.getHostNode) {
-        instance.getHostNode = instance.getNativeNode;
-      }
+    } else if (typeof node === "string" || typeof node === "number") {
+        // node本身是string或者number类型时
+        instance = ReactHostComponent.createInstanceForText(node);
     } else {
-      instance = new ReactCompositeComponentWrapper(element);
+        // 忽略
     }
-  } else if (typeof node === 'string' || typeof node === 'number') {
-    instance = ReactHostComponent.createInstanceForText(node);
-  } else {
-    invariant(false, 'Encountered invalid React node of type %s', typeof node);
-  }
 
-  if (__DEV__) {
-    warning(
-      typeof instance.mountComponent === 'function' &&
-        typeof instance.receiveComponent === 'function' &&
-        typeof instance.getHostNode === 'function' &&
-        typeof instance.unmountComponent === 'function',
-      'Only React Components can be mounted.',
-    );
-  }
+    // These two fields are used by the DOM and ART diffing algorithms
+    // respectively. Instead of using expandos on components, we should be
+    // storing the state needed by the diffing algorithms elsewhere.
 
-  // These two fields are used by the DOM and ART diffing algorithms
-  // respectively. Instead of using expandos on components, we should be
-  // storing the state needed by the diffing algorithms elsewhere.
-  instance._mountIndex = 0;
-  instance._mountImage = null;
+    // 这两个参数是分别为DOM和ART做`diff算法`用的。
+    instance._mountIndex = 0;
+    instance._mountImage = null;
 
-  if (__DEV__) {
-    instance._debugID = shouldHaveDebugID ? getNextDebugID() : 0;
-  }
-
-  // Internal instances should fully constructed at this point, so they should
-  // not get any new fields added to them at this point.
-  if (__DEV__) {
-    if (Object.preventExtensions) {
-      Object.preventExtensions(instance);
-    }
-  }
-
-  return instance;
+    return instance;
 }
-
 ```
+
+
+
+
 
 
 
