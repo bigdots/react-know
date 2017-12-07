@@ -34,6 +34,7 @@ render 接收三个参数：
 。
 
 ```js
+// path: /src/renderers/dom/client/ReactMount.js
 renderSubtreeIntoContainer: function(
     parentComponent,
     nextElement,
@@ -161,6 +162,7 @@ ReactDOMComponentTree.getInstanceFromNode = function(node) {
 ```
 
 ```js
+// path: /src/renderers/dom/client/ReactDOMComponentTree.js
 var internalInstanceKey =
     "__reactInternalInstance$" +
     Math.random()
@@ -205,6 +207,7 @@ function getClosestInstanceFromNode(node) {
 ```
 
 ```js
+// path: /src/renderers/dom/client/ReactDOMComponentTree.js
 /**
  * Populate `_hostNode` on each child of `inst`, assuming that the children
  * match up with the DOM (element) children of `node`.
