@@ -36,7 +36,6 @@ React.createElement = function(type, config, children){
     var self = null;
     var source = null;
 
-
     //从config中取出key、ref、self、source以及props的各个键值
 
     return ReactElement

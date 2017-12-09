@@ -50,17 +50,13 @@ _renderSubtreeIntoContainer: function(
     container,
     callback
 ) {
-    // ReactUpdateQueue 实现了在下一次的调和算法中更新state
-    // validateCallback 检验回调函数的合法性
-    ReactUpdateQueue.validateCallback(callback, "ReactDOM.render");
-
     //  TopLevelWrapper是一个构造函数，this.rootID唯一
     //  封装ReactElement，将nextElement挂载到wrapper的props属性下
     var nextWrappedElement = React.createElement(TopLevelWrapper, {
         child: nextElement
     });
 
-    // parentComponent为null，nextContext={}
+    // 对于ReactDOM.render()调用，parentComponent为null
     var nextContext;
     if (parentComponent) {
         var parentInst = ReactInstanceMap.get(parentComponent);
@@ -72,7 +68,6 @@ _renderSubtreeIntoContainer: function(
     // 获取要插入到的容器的前一次的ReactComponent，这是为了做DOM diff
     // 对于ReactDOM.render()调用，prevComponent为null
     var prevComponent = getTopLevelWrapperInContainer(container);
-
     if (prevComponent) {
         // 从prevComponent中获取到prevElement这个数据对象
         var prevWrappedElement = prevComponent._currentElement;
@@ -132,8 +127,14 @@ _renderSubtreeIntoContainer: function(
 `shouldUpdateReactComponent` 传入前后两次 ReactElement: `prevElement` 和
 `nextElement`。返回 :
 
-* `true` : 更新 `prevElement`
-* `false` : 销毁 `prevElement`， 挂载 `nextElement`
+* `true` : 更新 `prevElement`。
+* `false` : 销毁 `prevElement`， 挂载 `nextElement`。
+
+分情况进行讨论：
+1. `prevElement` 和 `nextElement` 都为 `null／false`，返回`true`
+2. `prevElement` 和 `nextElement` 都为 `string／number`， 返回`true`
+3. `prevElement` 和 `nextElement` 都为 `objetc` 且 `key` 和 `type` 相等， 返回`true`
+4. 其他： 返回 false
 
 ```js
 /**
@@ -404,8 +405,54 @@ _mountImageIntoNode: function(
   }
 ```
 
-<!-- =========================== ignore ====================================== -->
+```js
+/**
+ * Set the innerHTML property of a node, ensuring that whitespace is preserved
+ * even in IE8.
+ *
+ * @param {DOMElement} node
+ * @param {string} html
+ * @internal
+ */
+var setInnerHTML = createMicrosoftUnsafeLocalFunction(function(node, html) {
+  // IE does not have innerHTML for SVG nodes, so instead we inject the
+  // new markup in a temp node and then move the child nodes across into
+  // the target node
 
+  // SVG在IE下没有innerHTML属性，所以react先创建了一个div节点作为容器，然后再向页面塞入这个节点的子节点
+  if (node.namespaceURI === DOMNamespaces.svg && !('innerHTML' in node)) {
+    reusableSVGContainer =
+      reusableSVGContainer || document.createElement('div');
+    reusableSVGContainer.innerHTML = '<svg>' + html + '</svg>';
+    var svgNode = reusableSVGContainer.firstChild;
+    while (svgNode.firstChild) {
+      node.appendChild(svgNode.firstChild);
+    }
+  } else {
+    node.innerHTML = html;
+  }
+});
+```
+
+至此结束， 流程有点乱，比较难理解，我们来梳理一下：
+
+
+1. 首先需要一个ReactComponent 和 一个容器 container。
+
+2. 调用React.createElement(),创建ReactElement对象。
+
+3. 根据ReactElement的type分别创建ReactDOMComponent， ReactCompositeComponent，ReactDOMTextComponent等对象
+
+4. mountComponent(), 调用React生命周期方法解析组件，得到它的HTML
+
+5. _mountImageIntoNode(), 将HTML插入到DOM父节点中，通过设置DOM父节点的innerHTML属性。
+
+
+
+
+
+<!-- =========================== ignore ====================================== -->
+<!--
 ```js
 var topLevelRootCounter = 1;
 var TopLevelWrapper = function() {
@@ -555,4 +602,4 @@ function precacheChildNodes(inst, node) {
     }
     inst._flags |= Flags.hasCachedChildNodes;
 }
-```
+``` -->
