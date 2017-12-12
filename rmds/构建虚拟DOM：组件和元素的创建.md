@@ -1,0 +1,78 @@
+# 构建虚拟DOM：组件和元素的创建
+
+`React` 应用的基本构成单位是`ReactComponent`, n个`ReactComponent`通过合理的排列／复用来构成用户界面，每个`ReactComponent`都会返回`ReactElement`,然后通过`ReactElement`构成最终的虚拟DOM。所以说`React`是将应用构建在虚拟DOM上的。
+
+## 虚拟DOM
+
+`虚拟DOM` 听上去高大上，其实原理很简单，它就是将页面的 DOM 树的信息使用 JavaScript 对象来表示。
+
+react的虚拟DOM结构：
+
+```js
+var ReactElement = {
+    $$typeof: REACT_ELEMENT_TYPE,
+    type: type,
+    key: key,
+    ref: ref,
+    props: {
+        children: ReactElement || [ ReactElement... ],
+        ...
+    },
+    _owner: owner
+};
+```
+
+
+## 组件 —— ReactComponent
+
+> 组件可以将 UI 切分成一些的独立的、可复用的部件，这样你就只需专注于构建每一个单独的部件。它从概念上看就像是函数，它可以接收任意的输入值（称之为 “props”），并返回一个需要在页面上展示的 React 元素。
+
+React 提供了一个 `ReactComponent` 类用于创建组件。这个类在原型上提供了三个属性，并且赋予了`props`、 `context`、`refs`等实例属性。其中 `setState` 和 `props` 是核心属性，后面会详细讲解。
+
+```js
+function ReactComponent(props, context, updater) {
+    this.props = props;
+    this.context = context;
+    this.refs = emptyObject;
+
+    this.updater = updater || ReactNoopUpdateQueue;
+}
+
+ReactComponent.prototype.isReactComponent = {};
+
+ReactComponent.prototype.setState = function(partialState, callback) {};
+
+ReactComponent.prototype.forceUpdate = function(callback) {};
+```
+
+## 元素 —— ReactElement
+
+### JSX
+
+> `JSX` 是一种 `JavaScript` 的语法扩展。 我们推荐在 `React` 中使用 `JSX` 来描述用户界面。`JSX` 乍看起来可能比较像是模版语言，但事实上它完全是在 `JavaScript`内部实现的。
+
+`JSX`的内在原理是通过编译将代码转化成`React.createElement(type, config,
+children)`的形式，是一种语法糖。
+
+**所以，使用 jsx 并不是必须的，你也可以通过直接使用`createElement`来构建应用，但
+显而易见地，这样操作的成本更高。**
+
+### createElement
+
+`createElement` 是 React 提供的一个创建虚拟 DOM 的方法。它接收三个参数`type`、
+`config`以及`children`，并且返回一个`element`( 虚拟 DOM )。我们可以看下下面的源
+码：
+
+```js
+// src/isomorphic/React.js
+React.createElement = function(type, config, children) {
+    var props = {};
+    var key = null;
+    var ref = null;
+    var self = null;
+    var source = null;
+
+    //从config中取出key、ref、self、source以及props的各个键值
+    return ReactElement;
+};
+```
