@@ -547,34 +547,7 @@ var ReactCompositeComponent = {
         }
     },
 
-    _processPendingState: function(props, context) {
-        var inst = this._instance;
-        var queue = this._pendingStateQueue;
-        var replace = this._pendingReplaceState;
-        this._pendingReplaceState = false;
-        this._pendingStateQueue = null;
-
-        if (!queue) {
-            return inst.state;
-        }
-
-        if (replace && queue.length === 1) {
-            return queue[0];
-        }
-
-        var nextState = Object.assign({}, replace ? queue[0] : inst.state);
-        for (var i = replace ? 1 : 0; i < queue.length; i++) {
-            var partial = queue[i];
-            Object.assign(
-                nextState,
-                typeof partial === "function"
-                    ? partial.call(inst, nextState, props, context)
-                    : partial
-            );
-        }
-
-        return nextState;
-    },
+    _processPendingState: function() {},
 
     /**
      * Merges new props and state, notifies delegate methods of update and
@@ -704,36 +677,12 @@ var ReactCompositeComponent = {
     /**
      * @protected
      */
-    _renderValidatedComponentWithoutOwnerOrContext: function() {
-        var inst = this._instance;
-        var renderedElement;
-
-        renderedElement = inst.render();
-
-        return renderedElement;
-    },
+    _renderValidatedComponentWithoutOwnerOrContext: function() {},
 
     /**
      * @private
      */
-    _renderValidatedComponent: function() {
-        var renderedElement;
-        if (
-            __DEV__ ||
-            this._compositeType !== CompositeTypes.StatelessFunctional
-        ) {
-            ReactCurrentOwner.current = this;
-            try {
-                renderedElement = this._renderValidatedComponentWithoutOwnerOrContext();
-            } finally {
-                ReactCurrentOwner.current = null;
-            }
-        } else {
-            renderedElement = this._renderValidatedComponentWithoutOwnerOrContext();
-        }
-
-        return renderedElement;
-    },
+    _renderValidatedComponent: function() {},
 
     /**
      * Lazily allocates the refs object and stores `component` as `ref`.
@@ -800,5 +749,63 @@ var ReactCompositeComponent = {
 
     // Stub
     _instantiateReactComponent: null
+};
+```
+
+## _processPendingState 合并 state
+
+```js
+_processPendingState = function(props, context) {
+    var inst = this._instance;
+    var queue = this._pendingStateQueue;
+    var replace = this._pendingReplaceState;
+    this._pendingReplaceState = false;
+    this._pendingStateQueue = null;
+
+    if (!queue) {
+        return inst.state;
+    }
+
+    if (replace && queue.length === 1) {
+        return queue[0];
+    }
+
+    var nextState = Object.assign({}, replace ? queue[0] : inst.state);
+    for (var i = replace ? 1 : 0; i < queue.length; i++) {
+        var partial = queue[i];
+        Object.assign(
+            nextState,
+            typeof partial === "function"
+                ? partial.call(inst, nextState, props, context)
+                : partial
+        );
+    }
+
+    return nextState;
+};
+```
+
+## _renderValidatedComponentWithoutOwnerOrContext
+
+```js
+// 调用当前组件实例的render函数，获得ReactElement并返回
+_renderValidatedComponentWithoutOwnerOrContext: function() {
+        var inst = this._instance;
+        var renderedElement;
+
+        renderedElement = inst.render();
+
+        return renderedElement;
+    }
+```
+
+##
+
+```js
+_renderValidatedComponent = function() {
+    var renderedElement;
+    renderedElement = this._renderValidatedComponentWithoutOwnerOrContext();
+
+    return renderedElement;
 };
 ```
