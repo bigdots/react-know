@@ -31,3 +31,31 @@ batchedUpdates = function(callback, a, b, c, d, e) {
     }
 };
 ```
+
+## transaction的获取
+
+```js
+var RESET_BATCHED_UPDATES = {
+  initialize: emptyFunction,
+  close: function() {
+    ReactDefaultBatchingStrategy.isBatchingUpdates = false;
+  },
+};
+
+var FLUSH_BATCHED_UPDATES = {
+  initialize: emptyFunction,
+  close: ReactUpdates.flushBatchedUpdates.bind(ReactUpdates),
+};
+
+var TRANSACTION_WRAPPERS = [FLUSH_BATCHED_UPDATES, RESET_BATCHED_UPDATES];
+
+
+// 在ReactDefaultBatchingStrategyTransaction的原型上加上Transaction的属性和getTransactionWrappers方法
+Object.assign(ReactDefaultBatchingStrategyTransaction.prototype, Transaction, {
+  getTransactionWrappers: function() {
+    return TRANSACTION_WRAPPERS;
+  },
+});
+var transaction = new ReactDefaultBatchingStrategyTransaction();
+
+```
