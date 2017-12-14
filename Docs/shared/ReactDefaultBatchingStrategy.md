@@ -54,7 +54,7 @@ var TRANSACTION_WRAPPERS = [FLUSH_BATCHED_UPDATES, RESET_BATCHED_UPDATES];
 Object.assign(ReactDefaultBatchingStrategyTransaction.prototype, Transaction, {
   getTransactionWrappers: function() {
     return TRANSACTION_WRAPPERS;
-  },
+  }
 });
 var transaction = new ReactDefaultBatchingStrategyTransaction();
 
