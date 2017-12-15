@@ -117,3 +117,80 @@ Object.assign(ReactUpdatesFlushTransaction.prototype, Transaction, {
     }
 });
 ```
+
+
+<!-- todo.md -->
+
+## runBatchedUpdates
+
+会在perform中调用
+
+```js
+var updateBatchNumber = 0;
+
+function runBatchedUpdates(transaction) {
+    var len = transaction.dirtyComponentsLength;
+
+    // Since reconciling a component higher in the owner hierarchy usually (not
+    // always -- see shouldComponentUpdate()) will reconcile children, reconcile
+    // them before their children by sorting the array.
+    dirtyComponents.sort(mountOrderComparator);
+
+    // Any updates enqueued while reconciling must be performed after this entire
+    // batch. Otherwise, if dirtyComponents is [A, B] where A has children B and
+    // C, B could update twice in a single batch if C's render enqueues an update
+    // to B (since B would have already updated, we should skip it, and the only
+    // way we can know to do so is by checking the batch counter).
+
+
+    // 现在有个dirtyComponents [A,B], A又有子元素A和B，B可能在一次batch中被更新俩次
+
+    // 检查更新的次数，防止一个组件被更新多次
+    updateBatchNumber++;
+
+    for (var i = 0; i < len; i++) {
+        // If a component is unmounted before pending changes apply, it will still
+        // be here, but we assume that it has cleared its _pendingCallbacks and
+        // that performUpdateIfNecessary is a noop.
+        var component = dirtyComponents[i];
+
+        // If performUpdateIfNecessary happens to enqueue any new updates, we
+        // shouldn't execute the callbacks until the next render happens, so
+        // stash the callbacks first
+
+        // performUpdateIfNecessary可能会调用callbacks，但是在下一次reander发生之前，我们不应该执行callbacks，所以这里先暂存callbacks
+        var callbacks = component._pendingCallbacks;
+        component._pendingCallbacks = null;
+
+        var markerName;
+        if (ReactFeatureFlags.logTopLevelRenders) {
+            var namedComponent = component;
+            // Duck type TopLevelWrapper. This is probably always true.
+            if (component._currentElement.type.isReactTopLevelWrapper) {
+                namedComponent = component._renderedComponent;
+            }
+            markerName = "React update: " + namedComponent.getName();
+            console.time(markerName);
+        }
+
+        ReactReconciler.performUpdateIfNecessary(
+            component,
+            transaction.reconcileTransaction,
+            updateBatchNumber
+        );
+
+        if (markerName) {
+            console.timeEnd(markerName);
+        }
+
+        if (callbacks) {
+            for (var j = 0; j < callbacks.length; j++) {
+                transaction.callbackQueue.enqueue(
+                    callbacks[j],
+                    component.getPublicInstance()
+                );
+            }
+        }
+    }
+}
+```

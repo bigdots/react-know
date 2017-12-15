@@ -1,11 +1,24 @@
 ## Transaction
 
-Transaction就是给需要执行的方法fn用wrapper封装了 initialize 和 close 方法。且支持多次封装。再通过 Transaction 提供的 perform 方法执行。 perform执行后，先调用所有initialize 方法。最后调用所有close方法。
+Transaction 就是给需要执行的方法 fn 用 wrapper 封装了 initialize 和 close 方法。
+且支持多次封装。再通过 Transaction 提供的 perform 方法执行。 perform 执行后，先
+调用所有 initialize 方法。最后调用所有 close 方法。
 
+整个生命周期就是一个 Transaction，在 Transaction 执行期间，componentDidUpdate 方
+法被推入一个队列中。DOM reconciliation 后，再调用队列中的所有
+componentDidUpdate。
 
-整个生命周期就是一个Transaction，在Transaction执行期间，componentDidUpdate方法被推入一个队列中。DOM reconciliation后，再调用队列中的所有componentDidUpdate。
+一个简单的 transactionWrappers 结构：
 
-
+```js
+const transactionWrappers = [
+    {
+        initialize: function(){},
+        close: function(){}
+    }
+    ....
+];
+```
 
 ```js
 // src/renderers/shared/utils/Transaction.js
@@ -45,14 +58,7 @@ var TransactionImpl = {
  * "PooledClass".
  */
 reinitializeTransaction: function(): void {
-    // 返回一个对象数组，格式为
-    // [
-    //  {
-    //     initialize: fn,
-    //     close: fn
-    //   }
-    // ...
-    // ]
+    // 返回一个transactionWrap数组
     this.transactionWrappers = this.getTransactionWrappers();
     if (this.wrapperInitData) {
         // 清空 this.wrapperInitData
@@ -89,15 +95,22 @@ reinitializeTransaction: function(): void {
 perform = function(method, scope, a, b, c, d, e, f) {
     /* eslint-enable space-before-function-paren */
 
+    //  捕获method的执行异常情况
+    //  method异常：捕获initializeAll的执行异常情况
+    //  method不异常：不捕获initializeAll的执行异常情况
+
     var errorThrown;
     var ret;
     try {
+        // 表示正在transaction流程中
         this._isInTransaction = true;
         // Catching errors makes debugging more difficult, so we start with
         // errorThrown set to true before setting it to false after calling
         // close -- if it's still set to true in the finally block, it means
         // one of these calls threw.
         errorThrown = true;
+
+        // 执行所有的transactionWrapper中的initialize方法
         this.initializeAll(0);
         ret = method.call(scope, a, b, c, d, e, f);
         errorThrown = false; // 执行完，表示没有错误抛出
@@ -115,6 +128,7 @@ perform = function(method, scope, a, b, c, d, e, f) {
                 this.closeAll(0);
             }
         } finally {
+            // 执行结束，表示不在transaction流程中了
             this._isInTransaction = false;
         }
     }
@@ -124,10 +138,14 @@ perform = function(method, scope, a, b, c, d, e, f) {
 
 ## initializeAll
 
+调用所有 transactionWrappers 的 initialize 方法。
+
 ```js
 initializeAll = function(startIndex: number): void {
     // 获得transaction wrapper数组
     var transactionWrappers = this.transactionWrappers;
+
+    // 遍历执行
     for (var i = startIndex; i < transactionWrappers.length; i++) {
         var wrapper = transactionWrappers[i];
         try {
@@ -155,6 +173,8 @@ initializeAll = function(startIndex: number): void {
 
 ## closeAll
 
+调用所有 transactionWrappers 中的 close 方法。
+
 ```js
 /**
  * Invokes each of `this.transactionWrappers.close[i]` functions, passing into
@@ -163,8 +183,9 @@ initializeAll = function(startIndex: number): void {
  * invoked).
  */
 closeAll: function(startIndex: number): void {
-    
     var transactionWrappers = this.transactionWrappers;
+
+    // 遍历执行
     for (var i = startIndex; i < transactionWrappers.length; i++) {
         var wrapper = transactionWrappers[i];
         var initData = this.wrapperInitData[i];
@@ -190,6 +211,8 @@ closeAll: function(startIndex: number): void {
             }
         }
     }
+
+    // 调用完全部的close方法后，
     this.wrapperInitData.length = 0;
 };
 ```
