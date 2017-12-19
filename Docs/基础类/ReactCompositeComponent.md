@@ -3,7 +3,7 @@
 - [ReactCompositeComponent](#reactcompositecomponent)
     - [_processPendingState](#_processpendingstate)
     - [_renderValidatedComponentWithoutOwnerOrContext](#_rendervalidatedcomponentwithoutownerorcontext)
-- [](#)
+    - [_renderValidatedComponent](#_rendervalidatedcomponent)
     - [performUpdateIfNecessary](#performupdateifnecessary)
     - [receiveComponent](#receivecomponent)
     - [updateComponent](#updatecomponent)
@@ -12,9 +12,14 @@
     - [mountComponent](#mountcomponent)
     - [performInitialMount](#performinitialmount)
     - [unmountComponent](#unmountcomponent)
+    - [attachRef](#attachref)
+    - [detachRef](#detachref)
 
 <!-- /TOC -->
 # ReactCompositeComponent
+
+
+`ReactCompositeComponent`是React自定义类型组件。
 
 ```js
 var ReactCompositeComponent = {
@@ -51,10 +56,6 @@ var ReactCompositeComponent = {
 
         // ComponentWillUnmount shall only be called once
         this._calledComponentWillUnmount = false;
-
-        if (__DEV__) {
-            this._warnedAboutRefsInRender = false;
-        }
     },
 
     mountComponent: function() {},
@@ -92,13 +93,13 @@ var ReactCompositeComponent = {
 
     performInitialMountWithErrorHandling: function() {},
 
-    performInitialMount: function() {},
+    performInitialMount: function() {},  // 执行mountComponent的渲染阶段，会调用到instantiateReactComponent，从而进入初始化React组件的入口
 
     getHostNode: function() {
         return ReactReconciler.getHostNode(this._renderedComponent);
     },
 
-    unmountComponent: function() {},
+    unmountComponent: function() {},  // 卸载组件，内存释放等工作
 
     /**
      * Filters the context object to only contain keys specified in
@@ -183,7 +184,7 @@ var ReactCompositeComponent = {
 
     performUpdateIfNecessary: function() {},
 
-    updateComponent: function() {},
+    updateComponent: function() {},  // setState后被调用，重新渲染组件
 
     _processPendingState: function() {},
 
@@ -214,34 +215,9 @@ var ReactCompositeComponent = {
      */
     _renderValidatedComponent: function() {},
 
-    /**
-     * Lazily allocates the refs object and stores `component` as `ref`.
-     *
-     * @param {string} ref Reference name.
-     * @param {component} component Component to store as `ref`.
-     * @final
-     * @private
-     */
-    attachRef: function(ref, component) {
-        var inst = this.getPublicInstance();
+    attachRef: function() {},  // 将ref指向组件对象
 
-        var publicComponentInstance = component.getPublicInstance();
-
-        var refs = inst.refs === emptyObject ? (inst.refs = {}) : inst.refs;
-        refs[ref] = publicComponentInstance;
-    },
-
-    /**
-     * Detaches a reference name.
-     *
-     * @param {string} ref Name to dereference.
-     * @final
-     * @private
-     */
-    detachRef: function(ref) {
-        var refs = this.getPublicInstance().refs;
-        delete refs[ref];
-    },
+    detachRef: function() {}, // 将组件的引用从全局对象refs中删掉，
 
     /**
      * Get a text description of the component that can be used to identify it
@@ -284,7 +260,7 @@ var ReactCompositeComponent = {
 
 ## _processPendingState
 
-合并 state
+处理`_pendingStateQueue`队列中的数据，返回新的 state。
 
 ```js
 _processPendingState = function(props, context) {
@@ -294,14 +270,17 @@ _processPendingState = function(props, context) {
     this._pendingReplaceState = false;
     this._pendingStateQueue = null;
 
+    // 如果不存在需要更新的state，直接返回原有的state
     if (!queue) {
         return inst.state;
     }
 
+    // 如果是替换操作，之间返回state队列第一个
     if (replace && queue.length === 1) {
         return queue[0];
     }
 
+    // 遍历队列进行state合并
     var nextState = Object.assign({}, replace ? queue[0] : inst.state);
     for (var i = replace ? 1 : 0; i < queue.length; i++) {
         var partial = queue[i];
@@ -322,17 +301,17 @@ _processPendingState = function(props, context) {
 ```js
 // 调用当前组件实例的render函数，获得ReactElement并返回
 _renderValidatedComponentWithoutOwnerOrContext: function() {
-        var inst = this._instance;
-        var renderedElement;
+    var inst = this._instance;
+    var renderedElement;
 
-        // 调用生命周期函数
-        renderedElement = inst.render();
+    // 调用生命周期函数
+    renderedElement = inst.render();
 
-        return renderedElement;
-    }
+    return renderedElement;
+}
 ```
 
-# #
+## _renderValidatedComponent
 
 ```js
 _renderValidatedComponent = function() {
@@ -383,19 +362,19 @@ performUpdateIfNecessary: function(transaction) {
 
 ```js
 receiveComponent: function(nextElement, transaction, nextContext) {
-        var prevElement = this._currentElement;
-        var prevContext = this._context;
+    var prevElement = this._currentElement;
+    var prevContext = this._context;
 
-        this._pendingElement = null;
+    this._pendingElement = null;
 
-        this.updateComponent(
-            transaction,
-            prevElement,
-            nextElement,
-            prevContext,
-            nextContext
-        );
-    }
+    this.updateComponent(
+        transaction,
+        prevElement,
+        nextElement,
+        prevContext,
+        nextContext
+    );
+}
 ```
 
 ## updateComponent
@@ -494,7 +473,7 @@ updateComponent: function(
         inst.state = nextState;
         inst.context = nextContext;
     }
-},
+}
 ```
 
 
@@ -849,5 +828,45 @@ unmountComponent: function(safely) {
     // TODO: inst.props = null;
     // TODO: inst.state = null;
     // TODO: inst.context = null;
+}
+```
+
+
+## attachRef
+
+```js
+/**
+ * Lazily allocates the refs object and stores `component` as `ref`.
+ *
+ * @param {string} ref Reference name.
+ * @param {component} component Component to store as `ref`.
+ * @final
+ * @private
+ */
+attachRef: function(ref, component) {
+var inst = this.getPublicInstance();
+
+var publicComponentInstance = component.getPublicInstance();
+
+var refs = inst.refs === emptyObject ? (inst.refs = {}) : inst.refs;
+refs[ref] = publicComponentInstance;
+}
+
+```
+
+
+## detachRef
+
+```js
+/**
+ * Detaches a reference name.
+ *
+ * @param {string} ref Name to dereference.
+ * @final
+ * @private
+ */
+detachRef: function(ref) {
+    var refs = this.getPublicInstance().refs;
+    delete refs[ref];
 }
 ```

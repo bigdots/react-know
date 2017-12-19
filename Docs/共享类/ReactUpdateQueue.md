@@ -45,6 +45,7 @@ var ReactUpdateQueue = {
             return null;
         }
 
+        // 将回调函数推入栈
         if (internalInstance._pendingCallbacks) {
             internalInstance._pendingCallbacks.push(callback);
         } else {
