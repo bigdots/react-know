@@ -1,3 +1,13 @@
+# ReactUpdateQueue
+
+<!-- TOC -->
+
+- [ReactUpdateQueue](#reactupdatequeue)
+    - [getInternalInstanceReadyForUpdate](#getinternalinstancereadyforupdate)
+
+<!-- /TOC -->
+
+
 ```js
 // /src/renderers/shared/stack/reconciler/ReactUpdateQueue.js
 

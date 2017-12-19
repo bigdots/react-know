@@ -1,5 +1,13 @@
 # ReactDefaultBatchingStrategy
 
+<!-- TOC -->
+
+- [ReactDefaultBatchingStrategy](#reactdefaultbatchingstrategy)
+    - [batchedUpdates](#batchedupdates)
+    - [transaction的获取](#transaction的获取)
+
+<!-- /TOC -->
+
 ```js
 var ReactDefaultBatchingStrategy = {
     isBatchingUpdates: false,

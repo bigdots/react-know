@@ -1,4 +1,14 @@
-## Transaction
+# Transaction
+
+<!-- TOC -->
+
+- [Transaction](#transaction)
+    - [reinitializeTransaction](#reinitializetransaction)
+    - [perform](#perform)
+    - [initializeAll](#initializeall)
+    - [closeAll](#closeall)
+
+<!-- /TOC -->
 
 Transaction 就是给需要执行的方法 fn 用 wrapper 封装了 initialize 和 close 方法。
 且支持多次封装。再通过 Transaction 提供的 perform 方法执行。 perform 执行后，先
@@ -47,7 +57,7 @@ var TransactionImpl = {
 };
 ```
 
-### reinitializeTransaction
+## reinitializeTransaction
 
 ```js
 /**

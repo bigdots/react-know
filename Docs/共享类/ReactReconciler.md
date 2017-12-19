@@ -1,5 +1,12 @@
 # ReactReconciler
+<!-- TOC -->
 
+- [ReactReconciler](#reactreconciler)
+    - [performUpdateIfNecessary](#performupdateifnecessary)
+    - [receiveComponent](#receivecomponent)
+    - [mountComponent](#mountcomponent)
+
+<!-- /TOC -->
 ```js
 var ReactReconciler = {
     mountComponent: function () {},

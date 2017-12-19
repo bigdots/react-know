@@ -1,5 +1,15 @@
 # ReactUpdates
 
+<!-- TOC -->
+
+- [ReactUpdates](#reactupdates)
+    - [enqueueUpdate](#enqueueupdate)
+    - [flushBatchedUpdates](#flushbatchedupdates)
+    - [ReactUpdatesFlushTransaction](#reactupdatesflushtransaction)
+    - [runBatchedUpdates](#runbatchedupdates)
+
+<!-- /TOC -->
+
 ```js
 var ReactUpdates = {
     /**
