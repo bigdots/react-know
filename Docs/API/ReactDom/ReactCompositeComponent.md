@@ -1,3 +1,21 @@
+<!-- TOC -->
+
+- [ReactCompositeComponent](#reactcompositecomponent)
+    - [_processPendingState](#_processpendingstate)
+    - [_renderValidatedComponentWithoutOwnerOrContext](#_rendervalidatedcomponentwithoutownerorcontext)
+- [](#)
+    - [performUpdateIfNecessary](#performupdateifnecessary)
+    - [receiveComponent](#receivecomponent)
+    - [updateComponent](#updatecomponent)
+    - [_performComponentUpdate](#_performcomponentupdate)
+    - [_updateRenderedComponent](#_updaterenderedcomponent)
+    - [mountComponent](#mountcomponent)
+    - [performInitialMount](#performinitialmount)
+    - [unmountComponent](#unmountcomponent)
+
+<!-- /TOC -->
+# ReactCompositeComponent
+
 ```js
 var ReactCompositeComponent = {
     /**
@@ -314,7 +332,7 @@ _renderValidatedComponentWithoutOwnerOrContext: function() {
     }
 ```
 
-##
+# #
 
 ```js
 _renderValidatedComponent = function() {
