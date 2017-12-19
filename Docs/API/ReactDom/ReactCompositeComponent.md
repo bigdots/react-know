@@ -74,118 +74,13 @@ var ReactCompositeComponent = {
 
     performInitialMountWithErrorHandling: function() {},
 
-    performInitialMount: function(
-        renderedElement,
-        hostParent,
-        hostContainerInfo,
-        transaction,
-        context
-    ) {
-        var inst = this._instance;
-
-        var debugID = 0;
-
-        if (inst.componentWillMount) {
-            inst.componentWillMount();
-            // When mounting, calls to `setState` by `componentWillMount` will set
-            // `this._pendingStateQueue` without triggering a re-render.
-            if (this._pendingStateQueue) {
-                inst.state = this._processPendingState(
-                    inst.props,
-                    inst.context
-                );
-            }
-        }
-
-        // If not a stateless component, we now render
-        if (renderedElement === undefined) {
-            renderedElement = this._renderValidatedComponent();
-        }
-
-        var nodeType = ReactNodeTypes.getType(renderedElement);
-        this._renderedNodeType = nodeType;
-        var child = this._instantiateReactComponent(
-            renderedElement,
-            nodeType !== ReactNodeTypes.EMPTY /* shouldHaveDebugID */
-        );
-        this._renderedComponent = child;
-
-        var markup = ReactReconciler.mountComponent(
-            child,
-            transaction,
-            hostParent,
-            hostContainerInfo,
-            this._processChildContext(context),
-            debugID
-        );
-
-        return markup;
-    },
+    performInitialMount: function() {},
 
     getHostNode: function() {
         return ReactReconciler.getHostNode(this._renderedComponent);
     },
 
-    /**
-     * Releases any resources allocated by `mountComponent`.
-     *
-     * @final
-     * @internal
-     */
-    unmountComponent: function(safely) {
-        if (!this._renderedComponent) {
-            return;
-        }
-
-        var inst = this._instance;
-
-        if (inst.componentWillUnmount && !inst._calledComponentWillUnmount) {
-            inst._calledComponentWillUnmount = true;
-
-            if (safely) {
-                var name = this.getName() + ".componentWillUnmount()";
-                ReactErrorUtils.invokeGuardedCallback(
-                    name,
-                    inst.componentWillUnmount.bind(inst)
-                );
-            } else {
-                inst.componentWillUnmount();
-            }
-        }
-
-        if (this._renderedComponent) {
-            ReactReconciler.unmountComponent(this._renderedComponent, safely);
-            this._renderedNodeType = null;
-            this._renderedComponent = null;
-            this._instance = null;
-        }
-
-        // Reset pending fields
-        // Even if this component is scheduled for another update in ReactUpdates,
-        // it would still be ignored because these fields are reset.
-        this._pendingStateQueue = null;
-        this._pendingReplaceState = false;
-        this._pendingForceUpdate = false;
-        this._pendingCallbacks = null;
-        this._pendingElement = null;
-
-        // These fields do not really need to be reset since this object is no
-        // longer accessible.
-        this._context = null;
-        this._rootNodeID = 0;
-        this._topLevelWrapper = null;
-
-        // Delete the reference from the instance to this internal representation
-        // which allow the internals to be properly cleaned up even if the user
-        // leaks a reference to the public instance.
-        ReactInstanceMap.remove(inst);
-
-        // Some existing components rely on inst.props even after they've been
-        // destroyed (in event handlers).
-        // TODO: inst.props = null;
-        // TODO: inst.state = null;
-        // TODO: inst.context = null;
-    },
+    unmountComponent: function() {},
 
     /**
      * Filters the context object to only contain keys specified in
@@ -369,7 +264,9 @@ var ReactCompositeComponent = {
 };
 ```
 
-## _processPendingState 合并 state
+## _processPendingState
+
+合并 state
 
 ```js
 _processPendingState = function(props, context) {
@@ -648,8 +545,9 @@ _performComponentUpdate: function(
 }
 ```
 
-
 ## _updateRenderedComponent
+
+更新相应的DOM
 
 ```js
 /**
@@ -811,4 +709,127 @@ mountComponent: function(
     return markup;
 }
 
+```
+
+## performInitialMount
+
+```js
+performInitialMount: function(
+    renderedElement,
+    hostParent,
+    hostContainerInfo,
+    transaction,
+    context
+) {
+    var inst = this._instance;
+
+    var debugID = 0;
+
+    if (inst.componentWillMount) {
+        // 调用生命周期函数
+        inst.componentWillMount();
+        // When mounting, calls to `setState` by `componentWillMount` will set
+        // `this._pendingStateQueue` without triggering a re-render.
+        if (this._pendingStateQueue) {
+            inst.state = this._processPendingState(
+                inst.props,
+                inst.context
+            );
+        }
+    }
+
+    // If not a stateless component, we now render
+    if (renderedElement === undefined) {
+        renderedElement = this._renderValidatedComponent();
+    }
+
+    var nodeType = ReactNodeTypes.getType(renderedElement);
+    this._renderedNodeType = nodeType;
+    var child = this._instantiateReactComponent(
+        renderedElement,
+        nodeType !== ReactNodeTypes.EMPTY /* shouldHaveDebugID */
+    );
+    this._renderedComponent = child;
+
+    var markup = ReactReconciler.mountComponent(
+        child,
+        transaction,
+        hostParent,
+        hostContainerInfo,
+        this._processChildContext(context),
+        debugID
+    );
+
+    return markup;
+}
+```
+
+
+
+
+
+
+## unmountComponent
+
+```js
+/**
+ * Releases any resources allocated by `mountComponent`.
+ *
+ * @final
+ * @internal
+ */
+unmountComponent: function(safely) {
+    if (!this._renderedComponent) {
+        return;
+    }
+
+    var inst = this._instance;
+
+    if (inst.componentWillUnmount && !inst._calledComponentWillUnmount) {
+        inst._calledComponentWillUnmount = true;
+
+        if (safely) {
+            var name = this.getName() + ".componentWillUnmount()";
+            ReactErrorUtils.invokeGuardedCallback(
+                name,
+                inst.componentWillUnmount.bind(inst)
+            );
+        } else {
+            inst.componentWillUnmount();
+        }
+    }
+
+    if (this._renderedComponent) {
+        ReactReconciler.unmountComponent(this._renderedComponent, safely);
+        this._renderedNodeType = null;
+        this._renderedComponent = null;
+        this._instance = null;
+    }
+
+    // Reset pending fields
+    // Even if this component is scheduled for another update in ReactUpdates,
+    // it would still be ignored because these fields are reset.
+    this._pendingStateQueue = null;
+    this._pendingReplaceState = false;
+    this._pendingForceUpdate = false;
+    this._pendingCallbacks = null;
+    this._pendingElement = null;
+
+    // These fields do not really need to be reset since this object is no
+    // longer accessible.
+    this._context = null;
+    this._rootNodeID = 0;
+    this._topLevelWrapper = null;
+
+    // Delete the reference from the instance to this internal representation
+    // which allow the internals to be properly cleaned up even if the user
+    // leaks a reference to the public instance.
+    ReactInstanceMap.remove(inst);◊
+
+    // Some existing components rely on inst.props even after they've been
+    // destroyed (in event handlers).
+    // TODO: inst.props = null;
+    // TODO: inst.state = null;
+    // TODO: inst.context = null;
+}
 ```
