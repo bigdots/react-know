@@ -39,107 +39,7 @@ var ReactCompositeComponent = {
         }
     },
 
-    /**
-     * Initializes the component, renders markup, and registers event listeners.
-     *
-     * @param {ReactReconcileTransaction|ReactServerRenderingTransaction} transaction
-     * @param {?object} hostParent
-     * @param {?object} hostContainerInfo
-     * @param {?object} context
-     * @return {?string} Rendered markup to be inserted into the DOM.
-     * @final
-     * @internal
-     */
-    mountComponent: function(
-        transaction,
-        hostParent,
-        hostContainerInfo,
-        context
-    ) {
-        this._context = context;
-        this._mountOrder = nextMountID++;
-        this._hostParent = hostParent;
-        this._hostContainerInfo = hostContainerInfo;
-
-        var publicProps = this._currentElement.props;
-        var publicContext = this._processContext(context);
-
-        var Component = this._currentElement.type;
-
-        var updateQueue = transaction.getUpdateQueue();
-
-        // Initialize the public class
-        var doConstruct = shouldConstruct(Component);
-        var inst = this._constructComponent(
-            doConstruct,
-            publicProps,
-            publicContext,
-            updateQueue
-        );
-        var renderedElement;
-
-        // Support functional components
-        if (!doConstruct && (inst == null || inst.render == null)) {
-            renderedElement = inst;
-
-            inst = new StatelessComponent(Component);
-            this._compositeType = CompositeTypes.StatelessFunctional;
-        } else {
-            if (isPureComponent(Component)) {
-                this._compositeType = CompositeTypes.PureClass;
-            } else {
-                this._compositeType = CompositeTypes.ImpureClass;
-            }
-        }
-
-        // These should be set up in the constructor, but as a convenience for
-        // simpler class abstractions, we set them up after the fact.
-        inst.props = publicProps;
-        inst.context = publicContext;
-        inst.refs = emptyObject;
-        inst.updater = updateQueue;
-
-        this._instance = inst;
-
-        // Store a reference from the instance back to the internal representation
-        ReactInstanceMap.set(inst, this);
-
-        var initialState = inst.state;
-        if (initialState === undefined) {
-            inst.state = initialState = null;
-        }
-
-        this._pendingStateQueue = null;
-        this._pendingReplaceState = false;
-        this._pendingForceUpdate = false;
-
-        var markup;
-        if (inst.unstable_handleError) {
-            markup = this.performInitialMountWithErrorHandling(
-                renderedElement,
-                hostParent,
-                hostContainerInfo,
-                transaction,
-                context
-            );
-        } else {
-            markup = this.performInitialMount(
-                renderedElement,
-                hostParent,
-                hostContainerInfo,
-                transaction,
-                context
-            );
-        }
-
-        if (inst.componentDidMount) {
-            transaction
-                .getReactMountReady()
-                .enqueue(inst.componentDidMount, inst);
-        }
-
-        return markup;
-    },
+    mountComponent: function() {},
 
     _constructComponent: function(
         doConstruct,
@@ -172,50 +72,7 @@ var ReactCompositeComponent = {
         return Component(publicProps, publicContext, updateQueue);
     },
 
-    performInitialMountWithErrorHandling: function(
-        renderedElement,
-        hostParent,
-        hostContainerInfo,
-        transaction,
-        context
-    ) {
-        var markup;
-        var checkpoint = transaction.checkpoint();
-        try {
-            markup = this.performInitialMount(
-                renderedElement,
-                hostParent,
-                hostContainerInfo,
-                transaction,
-                context
-            );
-        } catch (e) {
-            // Roll back to checkpoint, handle error (which may add items to the transaction), and take a new checkpoint
-            transaction.rollback(checkpoint);
-            this._instance.unstable_handleError(e);
-            if (this._pendingStateQueue) {
-                this._instance.state = this._processPendingState(
-                    this._instance.props,
-                    this._instance.context
-                );
-            }
-            checkpoint = transaction.checkpoint();
-
-            this._renderedComponent.unmountComponent(true);
-            transaction.rollback(checkpoint);
-
-            // Try again - we've informed the component about the error, so they can render an error message this time.
-            // If this throws again, the error will bubble up (and can be caught by a higher error boundary).
-            markup = this.performInitialMount(
-                renderedElement,
-                hostParent,
-                hostContainerInfo,
-                transaction,
-                context
-            );
-        }
-        return markup;
-    },
+    performInitialMountWithErrorHandling: function() {},
 
     performInitialMount: function(
         renderedElement,
@@ -409,257 +266,17 @@ var ReactCompositeComponent = {
         }
     },
 
-    receiveComponent: function(nextElement, transaction, nextContext) {
-        var prevElement = this._currentElement;
-        var prevContext = this._context;
+    receiveComponent: function() {},
 
-        this._pendingElement = null;
+    performUpdateIfNecessary: function() {},
 
-        this.updateComponent(
-            transaction,
-            prevElement,
-            nextElement,
-            prevContext,
-            nextContext
-        );
-    },
-
-    /**
-     * If any of `_pendingElement`, `_pendingStateQueue`, or `_pendingForceUpdate`
-     * is set, update the component.
-     *
-     * @param {ReactReconcileTransaction} transaction
-     * @internal
-     */
-    performUpdateIfNecessary: function(transaction) {
-        if (this._pendingElement != null) {
-            ReactReconciler.receiveComponent(
-                this,
-                this._pendingElement,
-                transaction,
-                this._context
-            );
-        } else if (
-            this._pendingStateQueue !== null ||
-            this._pendingForceUpdate
-        ) {
-            this.updateComponent(
-                transaction,
-                this._currentElement,
-                this._currentElement,
-                this._context,
-                this._context
-            );
-        } else {
-            this._updateBatchNumber = null;
-        }
-    },
-
-    /**
-     * Perform an update to a mounted component. The componentWillReceiveProps and
-     * shouldComponentUpdate methods are called, then (assuming the update isn't
-     * skipped) the remaining update lifecycle methods are called and the DOM
-     * representation is updated.
-     *
-     * By default, this implements React's rendering and reconciliation algorithm.
-     * Sophisticated clients may wish to override this.
-     *
-     * @param {ReactReconcileTransaction} transaction
-     * @param {ReactElement} prevParentElement
-     * @param {ReactElement} nextParentElement
-     * @internal
-     * @overridable
-     */
-    updateComponent: function(
-        transaction,
-        prevParentElement,
-        nextParentElement,
-        prevUnmaskedContext,
-        nextUnmaskedContext
-    ) {
-        var inst = this._instance;
-
-        var willReceive = false;
-        var nextContext;
-
-        // Determine if the context has changed or not
-        if (this._context === nextUnmaskedContext) {
-            nextContext = inst.context;
-        } else {
-            nextContext = this._processContext(nextUnmaskedContext);
-            willReceive = true;
-        }
-
-        var prevProps = prevParentElement.props;
-        var nextProps = nextParentElement.props;
-
-        // Not a simple state update but a props update
-        if (prevParentElement !== nextParentElement) {
-            willReceive = true;
-        }
-
-        // An update here will schedule an update but immediately set
-        // _pendingStateQueue which will ensure that any state updates gets
-        // immediately reconciled instead of waiting for the next batch.
-        if (willReceive && inst.componentWillReceiveProps) {
-            inst.componentWillReceiveProps(nextProps, nextContext);
-        }
-
-        var nextState = this._processPendingState(nextProps, nextContext);
-        var shouldUpdate = true;
-
-        if (!this._pendingForceUpdate) {
-            if (inst.shouldComponentUpdate) {
-                shouldUpdate = inst.shouldComponentUpdate(
-                    nextProps,
-                    nextState,
-                    nextContext
-                );
-            } else {
-                if (this._compositeType === CompositeTypes.PureClass) {
-                    shouldUpdate =
-                        !shallowEqual(prevProps, nextProps) ||
-                        !shallowEqual(inst.state, nextState);
-                }
-            }
-        }
-
-        this._updateBatchNumber = null;
-        if (shouldUpdate) {
-            this._pendingForceUpdate = false;
-            // Will set `this.props`, `this.state` and `this.context`.
-            this._performComponentUpdate(
-                nextParentElement,
-                nextProps,
-                nextState,
-                nextContext,
-                transaction,
-                nextUnmaskedContext
-            );
-        } else {
-            // If it's determined that a component should not update, we still want
-            // to set props and state but we shortcut the rest of the update.
-            this._currentElement = nextParentElement;
-            this._context = nextUnmaskedContext;
-            inst.props = nextProps;
-            inst.state = nextState;
-            inst.context = nextContext;
-        }
-    },
+    updateComponent: function() {},
 
     _processPendingState: function() {},
 
-    /**
-     * Merges new props and state, notifies delegate methods of update and
-     * performs update.
-     *
-     * @param {ReactElement} nextElement Next element
-     * @param {object} nextProps Next public object to set as properties.
-     * @param {?object} nextState Next object to set as state.
-     * @param {?object} nextContext Next public object to set as context.
-     * @param {ReactReconcileTransaction} transaction
-     * @param {?object} unmaskedContext
-     * @private
-     */
-    _performComponentUpdate: function(
-        nextElement,
-        nextProps,
-        nextState,
-        nextContext,
-        transaction,
-        unmaskedContext
-    ) {
-        var inst = this._instance;
+    _performComponentUpdate: function() {},
 
-        var hasComponentDidUpdate = Boolean(inst.componentDidUpdate);
-        var prevProps;
-        var prevState;
-        var prevContext;
-        if (hasComponentDidUpdate) {
-            prevProps = inst.props;
-            prevState = inst.state;
-            prevContext = inst.context;
-        }
-
-        if (inst.componentWillUpdate) {
-            inst.componentWillUpdate(nextProps, nextState, nextContext);
-        }
-
-        this._currentElement = nextElement;
-        this._context = unmaskedContext;
-        inst.props = nextProps;
-        inst.state = nextState;
-        inst.context = nextContext;
-
-        this._updateRenderedComponent(transaction, unmaskedContext);
-
-        if (hasComponentDidUpdate) {
-            transaction
-                .getReactMountReady()
-                .enqueue(
-                    inst.componentDidUpdate.bind(
-                        inst,
-                        prevProps,
-                        prevState,
-                        prevContext
-                    ),
-                    inst
-                );
-        }
-    },
-
-    /**
-     * Call the component's `render` method and update the DOM accordingly.
-     *
-     * @param {ReactReconcileTransaction} transaction
-     * @internal
-     */
-    _updateRenderedComponent: function(transaction, context) {
-        var prevComponentInstance = this._renderedComponent;
-        var prevRenderedElement = prevComponentInstance._currentElement;
-        var nextRenderedElement = this._renderValidatedComponent();
-
-        var debugID = 0;
-
-        if (
-            shouldUpdateReactComponent(prevRenderedElement, nextRenderedElement)
-        ) {
-            ReactReconciler.receiveComponent(
-                prevComponentInstance,
-                nextRenderedElement,
-                transaction,
-                this._processChildContext(context)
-            );
-        } else {
-            var oldHostNode = ReactReconciler.getHostNode(
-                prevComponentInstance
-            );
-            ReactReconciler.unmountComponent(prevComponentInstance, false);
-
-            var nodeType = ReactNodeTypes.getType(nextRenderedElement);
-            this._renderedNodeType = nodeType;
-            var child = this._instantiateReactComponent(
-                nextRenderedElement,
-                nodeType !== ReactNodeTypes.EMPTY /* shouldHaveDebugID */
-            );
-            this._renderedComponent = child;
-
-            var nextMarkup = ReactReconciler.mountComponent(
-                child,
-                transaction,
-                this._hostParent,
-                this._hostContainerInfo,
-                this._processChildContext(context),
-                debugID
-            );
-
-            this._replaceNodeWithMarkup(
-                oldHostNode,
-                nextMarkup,
-                prevComponentInstance
-            );
-        }
-    },
+    _updateRenderedComponent: function() {},
 
     /**
      * Overridden in shallow rendering.
@@ -793,6 +410,7 @@ _renderValidatedComponentWithoutOwnerOrContext: function() {
         var inst = this._instance;
         var renderedElement;
 
+        // 调用生命周期函数
         renderedElement = inst.render();
 
         return renderedElement;
@@ -808,4 +426,389 @@ _renderValidatedComponent = function() {
 
     return renderedElement;
 };
+```
+
+## performUpdateIfNecessary
+
+```js
+/**
+ * If any of `_pendingElement`, `_pendingStateQueue`, or `_pendingForceUpdate`
+ * is set, update the component.
+ *
+ * @param {ReactReconcileTransaction} transaction
+ * @internal
+ */
+performUpdateIfNecessary: function(transaction) {
+    if (this._pendingElement != null) {
+        ReactReconciler.receiveComponent(
+            this,
+            this._pendingElement,
+            transaction,
+            this._context
+        );
+    } else if (
+        this._pendingStateQueue !== null ||
+        this._pendingForceUpdate
+    ) {
+        this.updateComponent(
+            transaction,
+            this._currentElement,
+            this._currentElement,
+            this._context,
+            this._context
+        );
+    } else {
+        this._updateBatchNumber = null;
+    }
+}
+```
+
+
+## receiveComponent
+
+```js
+receiveComponent: function(nextElement, transaction, nextContext) {
+        var prevElement = this._currentElement;
+        var prevContext = this._context;
+
+        this._pendingElement = null;
+
+        this.updateComponent(
+            transaction,
+            prevElement,
+            nextElement,
+            prevContext,
+            nextContext
+        );
+    }
+```
+
+## updateComponent
+
+```js
+/**
+ * Perform an update to a mounted component. The componentWillReceiveProps and
+ * shouldComponentUpdate methods are called, then (assuming the update isn't
+ * skipped) the remaining update lifecycle methods are called and the DOM
+ * representation is updated.
+ *
+ * By default, this implements React's rendering and reconciliation algorithm.
+ * Sophisticated clients may wish to override this.
+ *
+ * @param {ReactReconcileTransaction} transaction
+ * @param {ReactElement} prevParentElement
+ * @param {ReactElement} nextParentElement
+ * @internal
+ * @overridable
+ */
+updateComponent: function(
+    transaction,
+    prevParentElement,
+    nextParentElement,
+    prevUnmaskedContext,
+    nextUnmaskedContext
+) {
+    var inst = this._instance;
+
+    var willReceive = false;
+    var nextContext;
+
+    // Determine if the context has changed or not
+    if (this._context === nextUnmaskedContext) {
+        nextContext = inst.context;
+    } else {
+        nextContext = this._processContext(nextUnmaskedContext);
+        willReceive = true;
+    }
+
+    var prevProps = prevParentElement.props;
+    var nextProps = nextParentElement.props;
+
+    // Not a simple state update but a props update
+    if (prevParentElement !== nextParentElement) {
+        willReceive = true;
+    }
+
+    // An update here will schedule an update but immediately set
+    // _pendingStateQueue which will ensure that any state updates gets
+    // immediately reconciled instead of waiting for the next batch.
+
+    // 调用生命周期函数
+    if (willReceive && inst.componentWillReceiveProps) {
+        inst.componentWillReceiveProps(nextProps, nextContext);
+    }
+
+    var nextState = this._processPendingState(nextProps, nextContext);
+    var shouldUpdate = true;
+
+    if (!this._pendingForceUpdate) {
+        if (inst.shouldComponentUpdate) {
+            // 调用生命周期函数
+            shouldUpdate = inst.shouldComponentUpdate(
+                nextProps,
+                nextState,
+                nextContext
+            );
+        } else {
+            if (this._compositeType === CompositeTypes.PureClass) {
+                shouldUpdate =
+                    !shallowEqual(prevProps, nextProps) ||
+                    !shallowEqual(inst.state, nextState);
+            }
+        }
+    }
+
+    this._updateBatchNumber = null;
+    if (shouldUpdate) {
+        this._pendingForceUpdate = false;
+        // Will set `this.props`, `this.state` and `this.context`.
+        this._performComponentUpdate(
+            nextParentElement,
+            nextProps,
+            nextState,
+            nextContext,
+            transaction,
+            nextUnmaskedContext
+        );
+    } else {
+        // If it's determined that a component should not update, we still want
+        // to set props and state but we shortcut the rest of the update.
+        this._currentElement = nextParentElement;
+        this._context = nextUnmaskedContext;
+        inst.props = nextProps;
+        inst.state = nextState;
+        inst.context = nextContext;
+    }
+},
+```
+
+
+## _performComponentUpdate
+
+```js
+/**
+ * Merges new props and state, notifies delegate methods of update and
+ * performs update.
+ *
+ * @param {ReactElement} nextElement Next element
+ * @param {object} nextProps Next public object to set as properties.
+ * @param {?object} nextState Next object to set as state.
+ * @param {?object} nextContext Next public object to set as context.
+ * @param {ReactReconcileTransaction} transaction
+ * @param {?object} unmaskedContext
+ * @private
+ */
+_performComponentUpdate: function(
+    nextElement,
+    nextProps,
+    nextState,
+    nextContext,
+    transaction,
+    unmaskedContext
+) {
+    var inst = this._instance;
+
+    var hasComponentDidUpdate = Boolean(inst.componentDidUpdate);
+    var prevProps;
+    var prevState;
+    var prevContext;
+    if (hasComponentDidUpdate) {
+        prevProps = inst.props;
+        prevState = inst.state;
+        prevContext = inst.context;
+    }
+
+    if (inst.componentWillUpdate) {
+        // 调用生命周期函数
+        inst.componentWillUpdate(nextProps, nextState, nextContext);
+    }
+
+    this._currentElement = nextElement;
+    this._context = unmaskedContext;
+    inst.props = nextProps;
+    inst.state = nextState;
+    inst.context = nextContext;
+
+    this._updateRenderedComponent(transaction, unmaskedContext);
+
+    if (hasComponentDidUpdate) {
+        transaction
+            .getReactMountReady()
+            .enqueue(
+                // 调用生命周期函数
+                inst.componentDidUpdate.bind(
+                    inst,
+                    prevProps,
+                    prevState,
+                    prevContext
+                ),
+                inst
+            );
+    }
+}
+```
+
+
+## _updateRenderedComponent
+
+```js
+/**
+ * Call the component's `render` method and update the DOM accordingly.
+ *
+ * @param {ReactReconcileTransaction} transaction
+ * @internal
+ */
+_updateRenderedComponent: function(transaction, context) {
+    var prevComponentInstance = this._renderedComponent;
+    var prevRenderedElement = prevComponentInstance._currentElement;
+    var nextRenderedElement = this._renderValidatedComponent();
+
+    var debugID = 0;
+
+    if (
+        shouldUpdateReactComponent(prevRenderedElement, nextRenderedElement)
+    ) {
+        ReactReconciler.receiveComponent(
+            prevComponentInstance,
+            nextRenderedElement,
+            transaction,
+            this._processChildContext(context)
+        );
+    } else {
+        var oldHostNode = ReactReconciler.getHostNode(
+            prevComponentInstance
+        );
+        ReactReconciler.unmountComponent(prevComponentInstance, false);
+
+        var nodeType = ReactNodeTypes.getType(nextRenderedElement);
+        this._renderedNodeType = nodeType;
+        var child = this._instantiateReactComponent(
+            nextRenderedElement,
+            nodeType !== ReactNodeTypes.EMPTY /* shouldHaveDebugID */
+        );
+        this._renderedComponent = child;
+
+        var nextMarkup = ReactReconciler.mountComponent(
+            child,
+            transaction,
+            this._hostParent,
+            this._hostContainerInfo,
+            this._processChildContext(context),
+            debugID
+        );
+
+        this._replaceNodeWithMarkup(
+            oldHostNode,
+            nextMarkup,
+            prevComponentInstance
+        );
+    }
+}
+```
+
+## mountComponent
+
+```js
+/**
+ * Initializes the component, renders markup, and registers event listeners.
+ *
+ * @param {ReactReconcileTransaction|ReactServerRenderingTransaction} transaction
+ * @param {?object} hostParent
+ * @param {?object} hostContainerInfo
+ * @param {?object} context
+ * @return {?string} Rendered markup to be inserted into the DOM.
+ * @final
+ * @internal
+ */
+mountComponent: function(
+    transaction,
+    hostParent,
+    hostContainerInfo,
+    context
+) {
+    this._context = context;
+    this._mountOrder = nextMountID++;
+    this._hostParent = hostParent;
+    this._hostContainerInfo = hostContainerInfo;
+
+    var publicProps = this._currentElement.props;
+    var publicContext = this._processContext(context);
+
+    var Component = this._currentElement.type;
+
+    var updateQueue = transaction.getUpdateQueue();
+
+    // Initialize the public class
+    var doConstruct = shouldConstruct(Component);
+    var inst = this._constructComponent(
+        doConstruct,
+        publicProps,
+        publicContext,
+        updateQueue
+    );
+    var renderedElement;
+
+    // Support functional components
+    if (!doConstruct && (inst == null || inst.render == null)) {
+        renderedElement = inst;
+
+        inst = new StatelessComponent(Component);
+        this._compositeType = CompositeTypes.StatelessFunctional;
+    } else {
+        if (isPureComponent(Component)) {
+            this._compositeType = CompositeTypes.PureClass;
+        } else {
+            this._compositeType = CompositeTypes.ImpureClass;
+        }
+    }
+
+    // These should be set up in the constructor, but as a convenience for
+    // simpler class abstractions, we set them up after the fact.
+    inst.props = publicProps;
+    inst.context = publicContext;
+    inst.refs = emptyObject;
+    inst.updater = updateQueue;
+
+    this._instance = inst;
+
+    // Store a reference from the instance back to the internal representation
+    ReactInstanceMap.set(inst, this);
+
+    var initialState = inst.state;
+    if (initialState === undefined) {
+        inst.state = initialState = null;
+    }
+
+    this._pendingStateQueue = null;
+    this._pendingReplaceState = false;
+    this._pendingForceUpdate = false;
+
+    var markup;
+    if (inst.unstable_handleError) {
+        markup = this.performInitialMountWithErrorHandling(
+            renderedElement,
+            hostParent,
+            hostContainerInfo,
+            transaction,
+            context
+        );
+    } else {
+        markup = this.performInitialMount(
+            renderedElement,
+            hostParent,
+            hostContainerInfo,
+            transaction,
+            context
+        );
+    }
+
+    if (inst.componentDidMount) {
+        transaction
+            .getReactMountReady()
+            .enqueue(inst.componentDidMount, inst);
+    }
+
+    return markup;
+}
+
 ```

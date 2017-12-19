@@ -123,10 +123,15 @@ Object.assign(ReactUpdatesFlushTransaction.prototype, Transaction, {
 
 ## runBatchedUpdates
 
-会在perform中调用
+会在perform中调用，主要干两件事。首先执行performUpdateIfNecessary来刷新组件的view，然后执行之前阻塞的callback。下面来看performUpdateIfNecessary。
 
 ```js
 var updateBatchNumber = 0;
+
+
+function mountOrderComparator(c1, c2) {
+  return c1._mountOrder - c2._mountOrder;
+}
 
 function runBatchedUpdates(transaction) {
     var len = transaction.dirtyComponentsLength;
@@ -134,6 +139,8 @@ function runBatchedUpdates(transaction) {
     // Since reconciling a component higher in the owner hierarchy usually (not
     // always -- see shouldComponentUpdate()) will reconcile children, reconcile
     // them before their children by sorting the array.
+
+    // 根据组件的_mountOrder对组件进行排序
     dirtyComponents.sort(mountOrderComparator);
 
     // Any updates enqueued while reconciling must be performed after this entire
@@ -173,6 +180,7 @@ function runBatchedUpdates(transaction) {
             console.time(markerName);
         }
 
+        // 更新组件
         ReactReconciler.performUpdateIfNecessary(
             component,
             transaction.reconcileTransaction,
