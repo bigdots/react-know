@@ -18,7 +18,6 @@
 <!-- /TOC -->
 # ReactCompositeComponent
 
-
 `ReactCompositeComponent`是React自定义类型组件。
 
 ```js

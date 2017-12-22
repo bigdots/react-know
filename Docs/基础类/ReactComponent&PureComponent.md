@@ -1,5 +1,4 @@
 
-# 组件
 <!-- TOC -->
 
 - [组件](#组件)
@@ -9,6 +8,8 @@
     - [PureComponent](#purecomponent)
 
 <!-- /TOC -->
+
+# 组件
 
 ## ReactComponent
 
