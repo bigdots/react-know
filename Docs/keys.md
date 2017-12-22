@@ -1,6 +1,6 @@
 
 
-1. `ReactCompositeComponent` react复合组件
+1. `ReactCompositeComponent` react复合组件，相对于纯文本／数字、空组件
 2. `ReactDOMTextComponent` react文本组件
 2. `ReactDOMEmptyComponent` react空组件
 2. `_pendingCallbacks` 等待执行的回调函数队列
