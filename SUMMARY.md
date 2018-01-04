@@ -3,6 +3,7 @@
     * [组件的挂载](Docs/流程与机制/组件的挂载.md)
     * [组件的更新](Docs/流程与机制/组件的更新.md)
     * [组件的生命周期](Docs/流程与机制/组件的生命周期.md)
+    * [事务机制](Docs/流程与机制/事务机制.md)
 * [基础类]
     * [React](Docs/基础类/React.md)
     * [ReactCompositeComponent](Docs/基础类/ReactCompositeComponent.md)
