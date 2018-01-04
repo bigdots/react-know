@@ -7,6 +7,7 @@
 
 <!-- /TOC -->
 
+为组件提供了一个updater对象。处理upfate事宜。
 
 ```js
 // /src/renderers/shared/stack/reconciler/ReactUpdateQueue.js
@@ -202,6 +203,8 @@ var ReactUpdateQueue = {
 };
 
 module.exports = ReactUpdateQueue;
+
+
 ```
 
 ## getInternalInstanceReadyForUpdate

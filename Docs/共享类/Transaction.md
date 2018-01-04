@@ -1,5 +1,3 @@
-# Transaction
-
 <!-- TOC -->
 
 - [Transaction](#transaction)
@@ -10,25 +8,7 @@
 
 <!-- /TOC -->
 
-Transaction 就是给需要执行的方法 fn 用 wrapper 封装了 initialize 和 close 方法。
-且支持多次封装。再通过 Transaction 提供的 perform 方法执行。 perform 执行后，先
-调用所有 initialize 方法。最后调用所有 close 方法。
-
-整个生命周期就是一个 Transaction，在 Transaction 执行期间，componentDidUpdate 方
-法被推入一个队列中。DOM reconciliation 后，再调用队列中的所有
-componentDidUpdate。
-
-一个简单的 transactionWrappers 结构：
-
-```js
-const transactionWrappers = [
-    {
-        initialize: function(){},
-        close: function(){}
-    }
-    ....
-];
-```
+# Transaction
 
 ```js
 // src/renderers/shared/utils/Transaction.js

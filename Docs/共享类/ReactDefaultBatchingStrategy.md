@@ -18,6 +18,8 @@ var ReactDefaultBatchingStrategy = {
 
 ## batchedUpdates
 
+调用提供的函数
+
 ```js
 /**
  * Call the provided function in a context within which calls to `setState`

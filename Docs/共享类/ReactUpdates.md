@@ -30,6 +30,11 @@ var ReactUpdates = {
 
 ## enqueueUpdate
 
+处理setstate函数，立即更新或者放入队列。
+
+enqueueUpdate 包含了 React 避免重复 render 的逻辑
+故 getInitialState，componentWillMount， render，componentWillUpdate 中 setState 都不会引起 updateComponent。但在 componentDidMount 和 componentDidUpdate 中则会。
+
 ```js
 /**
  * Mark a component as needing a rerender, adding an optional callback to a
