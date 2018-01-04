@@ -1,4 +1,5 @@
 # ReactReconciler
+
 <!-- TOC -->
 
 - [ReactReconciler](#reactreconciler)
@@ -7,14 +8,15 @@
     - [mountComponent](#mountcomponent)
 
 <!-- /TOC -->
+
 ```js
 var ReactReconciler = {
-    mountComponent: function () {},
+    mountComponent: function() {},
     /**
      * Returns a value that can be passed to
      * ReactComponentEnvironment.replaceNodeWithMarkup.
      */
-    getHostNode: function (internalInstance) {
+    getHostNode: function(internalInstance) {
         return internalInstance.getHostNode();
     },
 
@@ -24,11 +26,11 @@ var ReactReconciler = {
      * @final
      * @internal
      */
-    unmountComponent: function (internalInstance, safely) {
+    unmountComponent: function(internalInstance, safely) {
         if (__DEV__) {
             if (internalInstance._debugID !== 0) {
                 ReactInstrumentation.debugTool.onBeforeUnmountComponent(
-                    internalInstance._debugID,
+                    internalInstance._debugID
                 );
             }
         }
@@ -37,19 +39,17 @@ var ReactReconciler = {
         if (__DEV__) {
             if (internalInstance._debugID !== 0) {
                 ReactInstrumentation.debugTool.onUnmountComponent(
-                    internalInstance._debugID,
+                    internalInstance._debugID
                 );
             }
         }
     },
 
-    receiveComponent: function () {},
+    receiveComponent: function() {},
 
-    performUpdateIfNecessary: function () {},
+    performUpdateIfNecessary: function() {}
 };
-
 ```
-
 
 ## performUpdateIfNecessary
 
@@ -76,8 +76,6 @@ performUpdateIfNecessary: function (
     }
 ```
 
-
-
 ## receiveComponent
 
 ```js
@@ -90,7 +88,7 @@ performUpdateIfNecessary: function (
  * @param {object} context
  * @internal
  */
-receiveComponent: function (
+receiveComponent =  function (
     internalInstance,
     nextElement,
     transaction,
@@ -130,9 +128,7 @@ receiveComponent: function (
     }
 
 },
-
 ```
-
 
 ## mountComponent
 
@@ -173,5 +169,4 @@ mountComponent: function (
 
     return markup;
 }
-
 ```

@@ -297,6 +297,8 @@ _processPendingState = function(props, context) {
 
 ## _renderValidatedComponentWithoutOwnerOrContext
 
+调用 `render` 方法
+
 ```js
 // 调用当前组件实例的render函数，获得ReactElement并返回
 _renderValidatedComponentWithoutOwnerOrContext: function() {
@@ -378,6 +380,8 @@ receiveComponent: function(nextElement, transaction, nextContext) {
 
 ## updateComponent
 
+调用`componentWillReceiveProps` 和 `shouldComponentUpdate` 方法。
+
 ```js
 /**
  * Perform an update to a mounted component. The componentWillReceiveProps and
@@ -406,7 +410,7 @@ updateComponent: function(
     var willReceive = false;
     var nextContext;
 
-    // Determine if the context has changed or not
+    // 判断context是否已经改变
     if (this._context === nextUnmaskedContext) {
         nextContext = inst.context;
     } else {
@@ -417,7 +421,7 @@ updateComponent: function(
     var prevProps = prevParentElement.props;
     var nextProps = nextParentElement.props;
 
-    // Not a simple state update but a props update
+    // 不是简单的state更新，而是props更新
     if (prevParentElement !== nextParentElement) {
         willReceive = true;
     }
@@ -478,6 +482,8 @@ updateComponent: function(
 
 ## _performComponentUpdate
 
+会调用 `componentWillUpdate` 和 `componentDidUpdate`。
+
 ```js
 /**
  * Merges new props and state, notifies delegate methods of update and
@@ -522,6 +528,7 @@ _performComponentUpdate: function(
     inst.state = nextState;
     inst.context = nextContext;
 
+    // 此处会调用render
     this._updateRenderedComponent(transaction, unmaskedContext);
 
     if (hasComponentDidUpdate) {
@@ -543,7 +550,7 @@ _performComponentUpdate: function(
 
 ## _updateRenderedComponent
 
-更新相应的DOM
+更新相应的DOM。this._renderValidatedComponent()会调用生命周期`render`方法
 
 ```js
 /**
