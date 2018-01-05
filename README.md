@@ -5,8 +5,4 @@ react 源码学习
 to be continued
 
 
-
-
-<div style='position: fixed;bottom:20px;right:20px'>
-<p>Hosted by <a href="https://pages.coding.me" style="font-weight: bold">Coding Pages</a></p>
-</div>
+在线阅读地址：[http://bigdots.coding.me/books/react-know/](http://bigdots.coding.me/books/react-know/)
