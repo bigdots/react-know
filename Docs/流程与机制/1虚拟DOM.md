@@ -8,6 +8,10 @@
 
 **虚拟DOM就是将页面的 DOM 树的信息使用 JavaScript 对象来表示。**
 
+```js
+var VD = {}
+```
+
 ## 结构
 
 react的虚拟DOM树结构：
@@ -25,6 +29,31 @@ var ReactElement = {
     _owner: owner
 };
 ```
+
+## 创建
+
+`createElement` 是React提供的一个创建虚拟DOM的方法。它接收三个参数`type`、 `config`以及`children`，并且返回一个`element`( 虚拟DOM )。
+
+```js
+// src/isomorphic/React.js
+React.createElement = function(type, config, children){
+
+    var props = {};
+    var key = null;
+    var ref = null;
+    var self = null;
+    var source = null;
+
+    //从config中取出key、ref、self、source以及props的各个键值
+
+    return ReactElement
+};
+```
+
+但是你会发现通过`createElement`来创建虚拟DOM的这种行为在我们现实应用中并不常见，那是因为react提供了一种更为便利的语法——`JSX`。
+
+**所以，使用jsx并不是必须的，但它是最省力的。**
+
 
 ## diff 算法
 
